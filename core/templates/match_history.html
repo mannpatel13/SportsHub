@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+
+{% block title %}Match History & Date-wise Winners - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+            <span class="badge-pill badge-success" style="font-size: 0.72rem;">
+                <i class="fas fa-calendar-check"></i> Date-Wise Results & Daily Winners
+            </span>
+            <span class="badge-pill badge-info" style="font-size: 0.72rem;">Archive & Analytics</span>
+        </div>
+        <h1 class="page-title">Match History & Daily Winners Timeline</h1>
+        <p class="page-subtitle">Track historical match results, analyze winner outcomes by specific dates, and review matchday performance timelines.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn-saas btn-saas-secondary" onclick="window.location.href='{% url 'match_history_export_pdf' %}'">
+            <i class="fas fa-file-pdf"></i> Export History PDF
+        </button>
+        <a href="{% url 'matches' %}" class="btn-saas btn-saas-primary">
+            <i class="fas fa-calendar-plus"></i> View Upcoming Fixtures
+        </a>
+    </div>
+</div>
+
+<!-- KPI Summary Banner -->
+<div class="grid-stats">
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Completed Matches</div>
+            <div class="stat-icon-wrapper stat-icon-lime">
+                <i class="fas fa-check-double"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ total_matches }}">{{ total_matches }}</div>
+        <div class="stat-trend" style="color: var(--accent-lime); font-size: 0.78rem;">
+            <i class="fas fa-calendar-days"></i> Across {{ grouped_history|length }} Matchdays
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Total Goals / Points</div>
+            <div class="stat-icon-wrapper stat-icon-cyan">
+                <i class="fas fa-futbol"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ total_goals }}">{{ total_goals }}</div>
+        <div class="stat-trend" style="color: var(--accent-cyan); font-size: 0.78rem;">
+            <i class="fas fa-chart-simple"></i> Avg {{ avg_goals }} Goals / Game
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Most Dominant Team</div>
+            <div class="stat-icon-wrapper stat-icon-amber">
+                <i class="fas fa-crown"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-amber); white-space: normal; line-height: 1.2;">{{ top_winner_name }}</div>
+        <div class="stat-trend" style="color: var(--accent-amber); font-size: 0.78rem;">
+            <i class="fas fa-trophy"></i> {{ top_winner_count }} Victories Recorded
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Participating Clubs</div>
+            <div class="stat-icon-wrapper stat-icon-purple">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ teams.count }}">{{ teams.count }}</div>
+        <div class="stat-trend" style="color: var(--accent-purple); font-size: 0.78rem;">
+            <i class="fas fa-network-wired"></i> Full Multi-Team Roster
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Date-wise Filter & Search Console -->
+<div class="saas-card" style="margin-bottom: 2rem; padding: 1.5rem;">
+    <form method="GET" action="{% url 'match_history' %}">
+        
+        <!-- Preset Date Filters Pills -->
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center;">
+            <span style="font-size: 0.78rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; margin-right: 0.5rem;">
+                <i class="fas fa-filter"></i> Date Filter:
+            </span>
+            <a href="{% url 'match_history' %}?preset=all" class="btn-saas {% if selected_preset == 'all' or not selected_preset and not selected_date %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+                All Match Dates
+            </a>
+            <a href="{% url 'match_history' %}?preset=today" class="btn-saas {% if selected_preset == 'today' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+                <span class="pulse-indicator" style="margin-right: 4px;"></span> Today's Matches
+            </a>
+            <a href="{% url 'match_history' %}?preset=yesterday" class="btn-saas {% if selected_preset == 'yesterday' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+                Yesterday
+            </a>
+            <a href="{% url 'match_history' %}?preset=last7" class="btn-saas {% if selected_preset == 'last7' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+                Last 7 Days
+            </a>
+            <a href="{% url 'match_history' %}?preset=last30" class="btn-saas {% if selected_preset == 'last30' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+                Last 30 Days
+            </a>
+        </div>
+
+        <!-- Granular Date Picker & Attribute Filters -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
+            <div>
+                <label class="form-label-custom">Specific Match Date</label>
+                <input type="date" name="date" value="{{ selected_date }}" class="form-input-custom">
+            </div>
+
+            <div>
+                <label class="form-label-custom">Filter by Team / Club</label>
+                <select name="team" class="form-input-custom">
+                    <option value="">-- All Teams --</option>
+                    {% for t in teams %}
+                    <option value="{{ t.id }}" {% if selected_team == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label-custom">Sport</label>
+                <select name="sport" class="form-input-custom">
+                    <option value="">-- All Sports --</option>
+                    {% for s in sports %}
+                    <option value="{{ s.id }}" {% if selected_sport == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label-custom">Tournament League</label>
+                <select name="tournament" class="form-input-custom">
+                    <option value="">-- All Tournaments --</option>
+                    {% for tour in tournaments %}
+                    <option value="{{ tour.id }}" {% if selected_tournament == tour.id|stringformat:"s" %}selected{% endif %}>{{ tour.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label-custom">Search Venue / Keyword</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search fixture, ground..." class="form-input-custom">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn-saas btn-saas-primary" style="flex: 1;">
+                    <i class="fas fa-search"></i> Filter
+                </button>
+                {% if selected_date or selected_team or selected_sport or selected_tournament or search_query or selected_preset != 'all' %}
+                <a href="{% url 'match_history' %}" class="btn-saas btn-saas-secondary" title="Reset Filters">
+                    <i class="fas fa-rotate-left"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- DATE-WISE TIMELINE RESULTS SECTION (Exportable) -->
+<div id="historyReportArea" style="display: flex; flex-direction: column; gap: 2.25rem;">
+    
+    {% for day in grouped_history %}
+    <div class="saas-card saas-card-glow animate-fade-up" style="padding: 1.75rem; border-left: 4px solid var(--accent-lime); background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), var(--bg-card));">
+        
+        <!-- Day Banner Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 46px; height: 46px; border-radius: 14px; background: rgba(16, 185, 129, 0.15); border: 2px solid var(--accent-lime); color: var(--accent-neon); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">
+                    <i class="fas fa-calendar-day"></i>
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <h2 style="font-size: 1.35rem; font-weight: 800; margin: 0;">{{ day.formatted_date }}</h2>
+                        {% if day.is_today %}
+                        <span class="badge-pill badge-danger" style="font-size: 0.72rem;">
+                            <span class="pulse-indicator" style="margin-right: 4px;"></span> TODAY'S MATCHES
+                        </span>
+                        {% endif %}
+                    </div>
+                    <small style="color: var(--text-muted); font-size: 0.82rem;">
+                        {{ day.total_matches }} Match{% if day.total_matches > 1 %}es{% endif %} Played • {{ day.daily_goals }} Total Goals / Points Scored
+                    </small>
+                </div>
+            </div>
+
+            <!-- Daily Winners Summary Badge List -->
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: var(--text-dim);">
+                    <i class="fas fa-trophy" style="color: var(--accent-amber);"></i> Winner(s) of the Day:
+                </span>
+                {% for w in day.daily_winners %}
+                <span class="badge-pill badge-success" style="font-size: 0.8rem; padding: 0.35rem 0.85rem; font-weight: 800;">
+                    <i class="fas fa-crown" style="color: var(--accent-amber);"></i> {{ w.team.name }} ({{ w.scoreline }})
+                </span>
+                {% empty %}
+                <span class="badge-pill badge-warning" style="font-size: 0.75rem;">
+                    ⚡ Stalemate / Draw (No outright winner)
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Matches Cards Grid for this Date -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem;">
+            {% for match in day.matches %}
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; transition: all var(--transition-fast);">
+                
+                <div>
+                    <!-- Match Top Bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.78rem;">
+                        <span class="badge-pill badge-info" style="font-size: 0.7rem;">
+                            {{ match.tournament.name|default:match.sport.name }}
+                        </span>
+                        <span style="color: var(--text-dim); font-weight: 600;">
+                            <i class="fas fa-clock"></i> {{ match.scheduled_time|date:"H:i A" }} IST
+                        </span>
+                    </div>
+
+                    <!-- Teams & Big Score Display -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1rem; gap: 0.5rem;">
+                        
+                        <!-- Home Team -->
+                        <div style="text-align: center; flex: 1; min-width: 0;">
+                            <div style="font-size: 1.05rem; font-weight: 800; color: {% if match.winner == match.home_team %}var(--accent-lime){% else %}var(--text-main){% endif %}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ match.home_team.short_code }}
+                                {% if match.winner == match.home_team %}<i class="fas fa-crown" style="color: var(--accent-amber); font-size: 0.8rem;" title="Match Winner"></i>{% endif %}
+                            </div>
+                            <small style="font-size: 0.72rem; color: var(--text-muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ match.home_team.name }}</small>
+                        </div>
+
+                        <!-- Score Pill -->
+                        <div style="background: var(--bg-secondary); border: 2px solid var(--border-highlight); padding: 0.35rem 0.95rem; border-radius: 10px; text-align: center; flex-shrink: 0;">
+                            <div style="font-size: 1.35rem; font-weight: 900; color: var(--accent-neon); letter-spacing: 0.05em; line-height: 1;">
+                                {{ match.home_score }} : {{ match.away_score }}
+                            </div>
+                            <span style="font-size: 0.62rem; text-transform: uppercase; font-weight: 800; color: var(--text-dim); display: block; margin-top: 2px;">FINAL</span>
+                        </div>
+
+                        <!-- Away Team -->
+                        <div style="text-align: center; flex: 1; min-width: 0;">
+                            <div style="font-size: 1.05rem; font-weight: 800; color: {% if match.winner == match.away_team %}var(--accent-lime){% else %}var(--text-main){% endif %}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ match.away_team.short_code }}
+                                {% if match.winner == match.away_team %}<i class="fas fa-crown" style="color: var(--accent-amber); font-size: 0.8rem;" title="Match Winner"></i>{% endif %}
+                            </div>
+                            <small style="font-size: 0.72rem; color: var(--text-muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ match.away_team.name }}</small>
+                        </div>
+                    </div>
+
+                    <!-- Winner Announcement Banner -->
+                    <div style="margin-bottom: 0.85rem; text-align: center;">
+                        {% if match.winner %}
+                        <span class="badge-pill badge-success" style="font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.85rem; width: 100%; justify-content: center;">
+                            <i class="fas fa-trophy" style="color: var(--accent-amber);"></i> Winner: {{ match.winner.name }}
+                        </span>
+                        {% else %}
+                        <span class="badge-pill badge-warning" style="font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.85rem; width: 100%; justify-content: center;">
+                            ⚡ Match Drawn (Level Scores)
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Venue, Ground & Weather -->
+                    <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><i class="fas fa-location-dot" style="color: var(--accent-cyan);"></i> Venue:</span>
+                            <strong style="color: var(--text-main);">{{ match.venue }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><i class="fas fa-layer-group" style="color: var(--accent-purple);"></i> Surface & Weather:</span>
+                            <span>{{ match.ground_type }} • {{ match.weather }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Key Event Highlights -->
+                    {% if match.events.exists %}
+                    <div style="background: var(--bg-card); padding: 0.65rem 0.85rem; border-radius: 8px; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        <strong style="color: var(--text-main); display: block; margin-bottom: 0.25rem;">
+                            <i class="fas fa-bolt" style="color: var(--accent-lime);"></i> Match Highlights:
+                        </strong>
+                        {% for ev in match.events.all|slice:":3" %}
+                        <div style="margin-bottom: 0.15rem;">
+                            <span style="color: var(--accent-neon); font-weight: 700;">{{ ev.minute }}'</span> {{ ev.event_type|title }}{% if ev.player %} • <strong style="color:var(--text-main);">{{ ev.player.name }}</strong>{% endif %} — {{ ev.description|truncatechars:45 }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Footer Action -->
+                <div style="display: flex; gap: 0.5rem; pt: 0.5rem; border-top: 1px solid var(--border-color);">
+                    <a href="{% url 'live_match' match.id %}" class="btn-saas btn-saas-secondary btn-saas-sm" style="flex: 1; text-align: center;">
+                        <i class="fas fa-timeline"></i> Timeline & Events
+                    </a>
+                    <a href="{% url 'ai_recommendations' %}?team_id={{ match.home_team.id }}&match_id={{ match.id }}" class="btn-saas btn-saas-secondary btn-saas-sm" style="flex: 1; text-align: center;">
+                        <i class="fas fa-brain"></i> AI Tactics
+                    </a>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+    {% empty %}
+    <div class="saas-card" style="text-align: center; padding: 5rem 2rem; color: var(--text-dim);">
+        <i class="fas fa-calendar-xmark" style="font-size: 3.5rem; color: var(--border-highlight); margin-bottom: 1.25rem;"></i>
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">No Completed Matches Found</h2>
+        <p style="font-size: 0.9rem; max-width: 480px; margin: 0 auto 1.5rem;">
+            There are no match results recorded for the selected date filter or search criteria.
+        </p>
+        <a href="{% url 'match_history' %}" class="btn-saas btn-saas-primary">
+            <i class="fas fa-rotate-left"></i> View All Match History
+        </a>
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

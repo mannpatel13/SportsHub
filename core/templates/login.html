@@ -1,0 +1,358 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SportsHub - AI Sports Management Platform Login</title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Design System -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    
+    <style>
+        .login-viewport {
+            min-height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 1.25rem;
+            background: radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
+                        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.1) 0%, transparent 45%),
+                        var(--bg-primary);
+            position: relative;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 500px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 2.5rem;
+            box-shadow: var(--shadow-card);
+            position: relative;
+            backdrop-filter: blur(16px);
+        }
+
+        /* 3-Way Role Selector */
+        .role-switch-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.4rem;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+
+        .role-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.7rem 0.5rem;
+            border-radius: var(--radius-pill);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            transition: all var(--transition-fast);
+            font-family: var(--font-sans);
+        }
+
+        .role-tab-btn.active {
+            background: var(--bg-card);
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-highlight);
+        }
+        .role-tab-btn.active.role-admin {
+            color: var(--accent-amber);
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+        .role-tab-btn.active.role-coach {
+            color: var(--accent-lime);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+        .role-tab-btn.active.role-player {
+            color: var(--accent-cyan);
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+
+        .toggle-reg-link {
+            color: var(--accent-lime);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-decoration: underline;
+        }
+        .toggle-reg-link:hover {
+            color: var(--accent-neon);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-viewport">
+        
+        <!-- Top Theme Toggle Floating Button -->
+        <div style="position: absolute; top: 1.5rem; right: 2rem; z-index: 20;">
+            <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">
+                <i class="fas fa-sun" id="themeIcon"></i>
+            </button>
+        </div>
+
+        <!-- Main Centered Authentication Card -->
+        <div class="auth-card saas-card-glow animate-fade-up">
+            
+            <!-- Brand Insignia -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.25rem;">
+                <div class="brand-logo" style="border: none; margin: 0; padding: 0;">
+                    <div class="brand-icon" style="width: 40px; height: 40px; font-size: 1.15rem;">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-title" style="font-size: 1.25rem;">SportsHub</span>
+                        <span class="brand-badge" style="font-size: 0.62rem;">AI PLATFORM 2026</span>
+                    </div>
+                </div>
+
+                <span class="badge-pill badge-success" style="font-size: 0.7rem;">
+                    <i class="fas fa-shield-check"></i> RBAC Protected
+                </span>
+            </div>
+
+            <!-- LOGIN VIEW CONTAINER -->
+            <div id="loginSection">
+                <div style="margin-bottom: 1.5rem;">
+                    <h1 style="font-size: 1.85rem; font-weight: 900; margin-bottom: 0.3rem;" id="loginTitle">
+                        Sign In
+                    </h1>
+                    <p style="color: var(--text-muted); font-size: 0.88rem;" id="loginSubtitle">
+                        Select your role below to authenticate.
+                    </p>
+                </div>
+
+                <!-- 3 Role Selector Tabs (Admin, Coach, Player / Team) -->
+                <div class="role-switch-container">
+                    <button type="button" class="role-tab-btn active role-admin" id="tabAdmin" onclick="switchRole('admin')">
+                        <i class="fas fa-crown"></i>
+                        <span>Admin</span>
+                    </button>
+                    <button type="button" class="role-tab-btn role-coach" id="tabCoach" onclick="switchRole('coach')">
+                        <i class="fas fa-whistle"></i>
+                        <span>Coach</span>
+                    </button>
+                    <button type="button" class="role-tab-btn role-player" id="tabPlayer" onclick="switchRole('player')">
+                        <i class="fas fa-users"></i>
+                        <span>Player / Team</span>
+                    </button>
+                </div>
+
+                {% if error %}
+                <div style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: var(--accent-rose); padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>{{ error }}</span>
+                </div>
+                {% endif %}
+
+                {% if success %}
+                <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--accent-lime); padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fas fa-check-circle"></i>
+                    <span>{{ success }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Login Form -->
+                <form method="POST" action="{% url 'login' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="login">
+                    <input type="hidden" name="role" id="roleField" value="admin">
+
+                    <div style="margin-bottom: 1.25rem;">
+                        <label class="form-label-custom" id="idLabel">Username / ID</label>
+                        <div style="position: relative;">
+                            <input type="text" name="username" id="loginUsername" required class="form-input-custom" placeholder="Enter username" style="padding-left: 2.75rem;">
+                            <i class="fas fa-user" id="userIcon" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 1.75rem;">
+                        <label class="form-label-custom">Password</label>
+                        <div style="position: relative;">
+                            <input type="password" name="password" id="loginPassword" required class="form-input-custom" placeholder="••••••••" style="padding-left: 2.75rem;">
+                            <i class="fas fa-lock" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-saas btn-saas-primary" style="width: 100%; padding: 0.95rem; font-size: 1rem;" id="loginBtn">
+                        <i class="fas fa-arrow-right-to-bracket"></i>
+                        <span>Login as Admin</span>
+                    </button>
+                </form>
+
+                <!-- Player Registration Option Toggle -->
+                <div id="playerRegisterPrompt" style="margin-top: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); display: none;">
+                    New athlete or squad member? 
+                    <span class="toggle-reg-link" onclick="showRegisterForm()">Register Here</span>
+                </div>
+            </div>
+
+            <!-- REGISTRATION VIEW CONTAINER (For New Players / Athletes) -->
+            <div id="registerSection" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.2rem;">Athlete Registration</h2>
+                        <p style="color: var(--text-muted); font-size: 0.82rem; margin: 0;">Create your player profile & credentials</p>
+                    </div>
+                    <button type="button" onclick="showLoginForm()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                </div>
+
+                <form method="POST" action="{% url 'login' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="register">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label class="form-label-custom">Full Name *</label>
+                            <input type="text" name="full_name" required class="form-input-custom" placeholder="e.g. Leo Vance">
+                        </div>
+                        <div>
+                            <label class="form-label-custom">Email Address</label>
+                            <input type="email" name="email" class="form-input-custom" placeholder="leo@indus.edu">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label class="form-label-custom">Choose Username *</label>
+                            <input type="text" name="username" required class="form-input-custom" placeholder="e.g. player_leo">
+                        </div>
+                        <div>
+                            <label class="form-label-custom">Choose Password *</label>
+                            <input type="password" name="password" required class="form-input-custom" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label class="form-label-custom">Position / Role *</label>
+                            <select name="role" class="form-input-custom">
+                                <option value="Forward">Forward / Striker</option>
+                                <option value="Midfielder">Midfielder</option>
+                                <option value="Defender">Defender</option>
+                                <option value="Goalkeeper">Goalkeeper</option>
+                                <option value="Batsman">Batsman</option>
+                                <option value="Bowler">Bowler</option>
+                                <option value="All-Rounder">All-Rounder</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label-custom">Sport *</label>
+                            <select name="sport" required class="form-input-custom">
+                                {% for s in sports %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label class="form-label-custom">Team / Club</label>
+                            <select name="team" class="form-input-custom">
+                                <option value="">-- Free Agent --</option>
+                                {% for t in teams %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label-custom">Jersey #</label>
+                            <input type="number" name="jersey_number" required class="form-input-custom" value="10">
+                        </div>
+                        <div>
+                            <label class="form-label-custom">Age</label>
+                            <input type="number" name="age" required class="form-input-custom" value="21">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-saas btn-saas-primary" style="width: 100%; padding: 0.95rem; font-size: 1rem;">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Register Athlete & Enter Platform</span>
+                    </button>
+                </form>
+
+                <div style="margin-top: 1.25rem; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+                    Already registered? 
+                    <span class="toggle-reg-link" onclick="showLoginForm()">Back to Login</span>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top: 1.75rem; text-align: center; font-size: 0.78rem; color: var(--text-dim); border-top: 1px solid var(--border-color); pt: 1rem;">
+                Indus University • Software Engineering & Project Management 2026
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{% static 'js/app.js' %}"></script>
+    <script>
+        let currentRole = 'admin';
+
+        function switchRole(role) {
+            currentRole = role;
+            document.getElementById('roleField').value = role;
+
+            document.querySelectorAll('.role-tab-btn').forEach(b => b.classList.remove('active'));
+            const prompt = document.getElementById('playerRegisterPrompt');
+
+            if (role === 'admin') {
+                document.getElementById('tabAdmin').classList.add('active');
+                document.getElementById('loginTitle').innerText = 'Admin Login';
+                document.getElementById('idLabel').innerText = 'Administrator Username / ID';
+                document.getElementById('userIcon').className = 'fas fa-crown';
+                document.getElementById('loginBtn').innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> <span>Login as Admin</span>';
+                prompt.style.display = 'none';
+            } else if (role === 'coach') {
+                document.getElementById('tabCoach').classList.add('active');
+                document.getElementById('loginTitle').innerText = 'Coach Login';
+                document.getElementById('idLabel').innerText = 'Coach Username / ID';
+                document.getElementById('userIcon').className = 'fas fa-whistle';
+                document.getElementById('loginBtn').innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> <span>Login as Coach</span>';
+                prompt.style.display = 'none';
+            } else {
+                document.getElementById('tabPlayer').classList.add('active');
+                document.getElementById('loginTitle').innerText = 'Player & Squad Login';
+                document.getElementById('idLabel').innerText = 'Player / Squad Username';
+                document.getElementById('userIcon').className = 'fas fa-users';
+                document.getElementById('loginBtn').innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> <span>Login as Player / Squad</span>';
+                prompt.style.display = 'block';
+            }
+        }
+
+        function showRegisterForm() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('registerSection').style.display = 'block';
+        }
+
+        function showLoginForm() {
+            document.getElementById('registerSection').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

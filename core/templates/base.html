@@ -1,0 +1,173 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SportsHub - AI Sports Management{% endblock %}</title>
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js & html2pdf & canvas-confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Custom Creative SaaS & Neo-Brutalist Theme -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    
+    <script>
+        window.openModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                if (modal.parentElement !== document.body) document.body.appendChild(modal);
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        };
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.modal-overlay').forEach(function(modal) {
+                if (modal.parentElement !== document.body) document.body.appendChild(modal);
+            });
+        });
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+                e.target.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    </script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <a href="{% url 'dashboard' %}" class="brand-logo">
+                <div class="brand-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">SportsHub</span>
+                    <span class="brand-badge">AI Platform 2026</span>
+                </div>
+            </a>
+
+            <nav class="nav-group">
+                <span class="nav-label">Core Management</span>
+                <a href="{% url 'dashboard' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'players' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'players' %}active{% endif %}">
+                    <i class="fas fa-users"></i>
+                    <span>Player Roster</span>
+                </a>
+                <a href="{% url 'teams' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'teams' or request.resolver_match.url_name == 'team_detail' %}active{% endif %}">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Teams & Clubs</span>
+                </a>
+                <a href="{% url 'matches' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'matches' %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Fixtures & Match</span>
+                </a>
+                <a href="{% url 'match_history' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'match_history' %}active{% endif %}">
+                    <i class="fas fa-trophy" style="color: var(--accent-amber);"></i>
+                    <span>Match History & Winners</span>
+                </a>
+
+                <span class="nav-label" style="margin-top: 0.5rem;">AI & Intelligence</span>
+                <a href="{% url 'ai_recommendations' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'ai_recommendations' %}active{% endif %}">
+                    <i class="fas fa-brain" style="color: var(--accent-neon);"></i>
+                    <span>AI Lineup Engine</span>
+                </a>
+                {% if not request.user.player_profile %}{% if request.user.coach_profile or request.user.is_staff or request.user.is_superuser %}
+                <a href="{% url 'coach_portal' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'coach_portal' %}active{% endif %}">
+                    <i class="fas fa-user-shield" style="color: var(--accent-cyan);"></i>
+                    <span>Coach Matchday</span>
+                </a>
+                {% endif %}{% endif %}
+
+                <span class="nav-label" style="margin-top: 0.5rem;">Analytics</span>
+                <a href="{% url 'reports' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Reports & Export</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-card" style="margin-bottom: 0.75rem;">
+                    <div class="user-avatar">
+                        {{ request.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <span class="user-role-badge">
+                            {% if request.user.player_profile %}Player / Athlete{% elif request.user.coach_profile %}Coach{% elif request.user.is_superuser or request.user.is_staff %}Administrator{% else %}User{% endif %}
+                        </span>
+                    </div>
+                </div>
+                <a href="{% url 'logout' %}" class="btn-saas btn-saas-secondary btn-saas-sm" style="width: 100%; text-align: center; color: var(--accent-rose); border-color: rgba(244,63,94,0.3);">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Log Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Top Sticky Header -->
+            <header class="top-header">
+                <div class="header-search">
+                    <i class="fas fa-search" style="color: var(--text-dim);"></i>
+                    <input type="text" placeholder="Search players, matches, lineups...">
+                </div>
+
+                <div class="header-actions">
+                    <!-- Dark / Light Theme Toggle -->
+                    <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">
+                        <i class="fas fa-sun" id="themeIcon"></i>
+                    </button>
+
+                    <!-- Quick AI Lineup Shortcut -->
+                    <a href="{% url 'ai_recommendations' %}" class="btn-saas btn-saas-primary btn-saas-sm">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        <span>AI Match Engine</span>
+                    </a>
+
+                    <!-- Prominent Header Logout Option -->
+                    <a href="{% url 'logout' %}" class="btn-saas btn-saas-secondary btn-saas-sm" style="color: var(--accent-rose); border-color: rgba(244,63,94,0.35); background: rgba(244,63,94,0.08);" title="Log out of session">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </header>
+
+            <!-- Page Dynamic Body -->
+            <main class="page-content animate-fade-up">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Core App Scripts -->
+    {% if messages %}
+    <div id="serverMessageData" hidden>{% for message in messages %}<span data-message-type="{{ message.tags }}">{{ message|escape }}</span>{% endfor %}</div>
+    <script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('#serverMessageData span').forEach(function(el){if(window.showToast)window.showToast(el.textContent,el.dataset.messageType==='error'?'error':'success');});});</script>
+    {% endif %}
+
+    <script src="{% static 'js/app.js' %}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

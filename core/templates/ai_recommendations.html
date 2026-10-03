@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Lineup Recommendation Engine - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+            <span class="badge-pill badge-success" style="font-size: 0.72rem;">Scikit-Learn Weighted Engine</span>
+            <span class="badge-pill badge-info" style="font-size: 0.72rem;">SRS FR-5.1 — FR-5.5</span>
+        </div>
+        <h1 class="page-title">AI Lineup Recommendation Engine</h1>
+        <p class="page-subtitle">Multi-factor tactical optimization evaluating fitness, recent form, ground suitability, and weather adaptability.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn-saas btn-saas-secondary" onclick="exportPageToPDF('aiLineupReportSection', 'SportsHub_AI_Lineup.pdf')">
+            <i class="fas fa-file-pdf"></i> Export Tactical Sheet
+        </button>
+        <button class="btn-saas btn-saas-primary" onclick="runAIOptimization()">
+            <i class="fas fa-bolt"></i> Run AI Optimization
+        </button>
+    </div>
+</div>
+
+<!-- Simulation Control Deck -->
+<div class="saas-card" style="margin-bottom: 2rem; border-color: var(--border-highlight); background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));">
+    <div class="card-title" style="margin-bottom: 1.25rem;">
+        <i class="fas fa-sliders" style="color: var(--accent-neon);"></i>
+        <span>Match Context & Environmental Simulation Controls</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; align-items: flex-end;">
+        <div>
+            <label class="form-label-custom">Select Squad / Team</label>
+            <select id="aiTeamSelect" class="form-input-custom">
+                {% for team in teams %}
+                <option value="{{ team.id }}" {% if request.GET.team_id == team.id|stringformat:"s" %}selected{% endif %}>{{ team.name }} ({{ team.sport.name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label-custom">Upcoming Fixture (Optional)</label>
+            <select id="aiMatchSelect" class="form-input-custom">
+                <option value="">-- Custom Simulation Context --</option>
+                {% for m in matches %}
+                <option value="{{ m.id }}" data-ground="{{ m.ground_type }}" data-weather="{{ m.weather }}" {% if request.GET.match_id == m.id|stringformat:"s" %}selected{% endif %}>
+                    {{ m.home_team.short_code }} vs {{ m.away_team.short_code }} @ {{ m.venue }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label-custom">Pitch / Ground Surface</label>
+            <select id="aiGroundSelect" class="form-input-custom">
+                <option value="Grass">Natural Grass Pitch</option>
+                <option value="Turf">Artificial Turf Dome</option>
+                <option value="Clay">Clay / Hard Pitch</option>
+                <option value="Indoor">Indoor Arena</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label-custom">Weather Condition</label>
+            <select id="aiWeatherSelect" class="form-input-custom">
+                <option value="Sunny">Clear & Sunny (Dry)</option>
+                <option value="Rainy">Heavy Rain & Wet Pitch</option>
+                <option value="Humid">High Humidity & Heat</option>
+                <option value="Windy">High Wind Velocity</option>
+                <option value="Overcast">Overcast & Cool</option>
+            </select>
+        </div>
+
+        <div>
+            <button class="btn-saas btn-saas-primary" style="width: 100%;" onclick="runAIOptimization()">
+                <i class="fas fa-wand-magic-sparkles"></i> Recalculate AI
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Main AI Recommendation View (Exportable Section) -->
+<div id="aiLineupReportSection" style="display: flex; flex-direction: column; gap: 2rem;">
+    
+    <!-- AI Confidence & Summary Banner -->
+    <div class="saas-card saas-card-glow" style="border-left: 4px solid var(--accent-lime); background: linear-gradient(135deg, rgba(16,185,129,0.08), var(--bg-card));">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div style="width: 72px; height: 72px; border-radius: 20px; background: rgba(16,185,129,0.15); border: 2px solid var(--accent-lime); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--accent-lime-glow);">
+                    <span style="font-size: 1.4rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-neon);" id="aiConfidenceValue">94.2%</span>
+                    <span style="font-size: 0.62rem; text-transform: uppercase; font-weight: 800; color: var(--accent-lime);">Confidence</span>
+                </div>
+                <div>
+                    <h2 style="font-size: 1.4rem; margin-bottom: 0.2rem;" id="aiRecommendationTitle">Indus Titans FC — Optimal Tactical Lineup</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;" id="aiConditionsSummary">
+                        Formulated for <strong>Natural Grass</strong> in <strong>Clear & Sunny</strong> conditions.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Mathematical Weight Formula Snapshot (SRS 1.4, 2.5) -->
+            <div style="background: var(--bg-secondary); padding: 0.75rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-size: 0.78rem;">
+                <div style="font-weight: 700; color: var(--text-dim); margin-bottom: 0.35rem; text-transform: uppercase;">Engine Scoring Model:</div>
+                <code style="color: var(--accent-cyan); font-family: monospace;">
+                    Score = (0.35*Fit) + (0.30*Form) + (0.15*Ground) + (0.10*Weather) + (0.10*Stamina)
+                </code>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2-Column Tactical Visualizer & Lineup Cards -->
+    <div class="grid-2col">
+        <!-- Left Column: Tactical Football Pitch Visualizer -->
+        <div class="saas-card" style="padding: 1.5rem;">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-futbol" style="color: var(--accent-lime);"></i>
+                    <span>Formation Pitch View (4-3-3 / 4-4-2)</span>
+                </div>
+                <span class="badge-pill badge-success" id="startingCountBadge">11 Starting Athletes</span>
+            </div>
+
+            <div class="tactical-pitch" id="tacticalPitch">
+                <div class="pitch-line pitch-center-line"></div>
+                <div class="pitch-line pitch-center-circle"></div>
+                <div class="pitch-line pitch-penalty-top"></div>
+                <div class="pitch-line pitch-penalty-bottom"></div>
+
+                <!-- Player Node Pins injected dynamically by JS -->
+                <div id="pitchPinsContainer"></div>
+            </div>
+        </div>
+
+        <!-- Right Column: Ranked Starting XI List with Explainable Factor Badges -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-ranking-star" style="color: var(--accent-neon);"></i>
+                    <span>Starting Lineup Suitability Scores</span>
+                </div>
+                <span style="font-size: 0.8rem; color: var(--text-dim);">Sorted by AI Index</span>
+            </div>
+
+            <div id="startingXIListContainer" style="display: flex; flex-direction: column; gap: 0.85rem; max-height: 480px; overflow-y: auto; padding-right: 0.25rem;">
+                <!-- Starting players dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bench Substitutes & Reserves (SRS FR-6.2) -->
+    <div class="saas-card">
+        <div class="card-header-flex">
+            <div class="card-title">
+                <i class="fas fa-couch" style="color: var(--accent-cyan);"></i>
+                <span>Recommended Bench Reserves & Substitutes</span>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Available for Matchday Emergency Substitution</span>
+        </div>
+
+        <div id="benchListContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+            <!-- Bench players dynamically populated -->
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Formation coordinates for 4-3-3 (percentage top/left on pitch)
+const FORMATION_433_COORDS = {
+    'Goalkeeper': [{ top: 88, left: 50 }],
+    'Defender': [
+        { top: 72, left: 16 },
+        { top: 74, left: 38 },
+        { top: 74, left: 62 },
+        { top: 72, left: 84 }
+    ],
+    'Midfielder': [
+        { top: 48, left: 26 },
+        { top: 44, left: 50 },
+        { top: 48, left: 74 }
+    ],
+    'Forward': [
+        { top: 22, left: 20 },
+        { top: 16, left: 50 },
+        { top: 22, left: 80 }
+    ]
+};
+
+async function runAIOptimization() {
+    const teamId = document.getElementById('aiTeamSelect').value;
+    const matchId = document.getElementById('aiMatchSelect').value;
+    const ground = document.getElementById('aiGroundSelect').value;
+    const weather = document.getElementById('aiWeatherSelect').value;
+
+    try {
+        const url = `/api/ai/run-lineup/?team_id=${teamId}&match_id=${matchId}&ground_type=${ground}&weather=${weather}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            renderAIOutput(data);
+            showToast(`AI Lineup optimized with ${data.confidence}% confidence!`, 'success');
+            fireConfetti();
+        } else {
+            showToast('Failed to optimize lineup', 'error');
+        }
+    } catch (e) {
+        showToast('Network error calculating AI Lineup', 'error');
+    }
+}
+
+function renderAIOutput(data) {
+    document.getElementById('aiConfidenceValue').innerText = `${data.confidence}%`;
+    document.getElementById('aiRecommendationTitle').innerText = `${data.team_name} — Optimal Tactical Lineup`;
+    document.getElementById('aiConditionsSummary').innerHTML = `Formulated for <strong>${data.ground_type}</strong> in <strong>${data.weather}</strong> conditions.`;
+    document.getElementById('startingCountBadge').innerText = `${data.starting_xi.length} Starting Athletes`;
+
+    // 1. Render Tactical Pitch Pins
+    const pitchContainer = document.getElementById('pitchPinsContainer');
+    pitchContainer.innerHTML = '';
+
+    const roleCounters = { 'Goalkeeper': 0, 'Defender': 0, 'Midfielder': 0, 'Forward': 0 };
+
+    data.starting_xi.forEach((player) => {
+        let role = player.role;
+        if (!FORMATION_433_COORDS[role]) role = 'Forward';
+
+        const coordsList = FORMATION_433_COORDS[role] || FORMATION_433_COORDS['Forward'];
+        const idx = roleCounters[role] % coordsList.length;
+        roleCounters[role]++;
+
+        const coord = coordsList[idx];
+
+        const pin = document.createElement('div');
+        pin.className = 'player-node-pin';
+        pin.style.top = `${coord.top}%`;
+        pin.style.left = `${coord.left}%`;
+        pin.innerHTML = `
+            <div class="player-node-badge" title="AI Score: ${player.suitability_score}">#${player.jersey_number}</div>
+            <div class="player-node-name">${player.name.split(' ')[0]} (${player.suitability_score})</div>
+        `;
+        pin.onclick = () => viewPlayerModal(player.player_id);
+        pitchContainer.appendChild(pin);
+    });
+
+    // 2. Render Starting XI List
+    const startContainer = document.getElementById('startingXIListContainer');
+    startContainer.innerHTML = '';
+
+    data.starting_xi.forEach((p, i) => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 0.85rem 1rem; display: flex; justify-content: space-between; align-items: center;';
+        
+        const reasonsHtml = p.reasons.map(r => `<span class="badge-pill badge-info" style="font-size: 0.68rem;">${r}</span>`).join(' ');
+
+        card.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-weight: 800; font-size: 0.9rem; color: var(--text-dim); width: 18px;">${i+1}</span>
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent-lime); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: var(--accent-neon);">
+                    #${p.jersey_number}
+                </div>
+                <div>
+                    <strong style="font-size: 0.92rem;">${p.name}</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted);">${p.role} • Fit ${p.norm_fitness}% • Form ${p.norm_form}/10</div>
+                    <div style="display: flex; gap: 0.3rem; margin-top: 0.3rem; flex-wrap: wrap;">${reasonsHtml}</div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 1.25rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-neon);">${p.suitability_score}</span>
+                <span style="display: block; font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;">AI Index</span>
+            </div>
+        `;
+        startContainer.appendChild(card);
+    });
+
+    // 3. Render Bench
+    const benchContainer = document.getElementById('benchListContainer');
+    benchContainer.innerHTML = '';
+
+    data.bench.forEach((p) => {
+        const bcard = document.createElement('div');
+        bcard.className = 'saas-card';
+        bcard.style.padding = '0.95rem';
+
+        bcard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--bg-secondary); border: 1px solid var(--border-highlight); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem;">
+                        #${p.jersey_number}
+                    </div>
+                    <strong>${p.name}</strong>
+                </div>
+                <span class="badge-pill ${p.injury_status === 'FIT' ? 'badge-success' : 'badge-warning'}" style="font-size: 0.68rem;">
+                    ${p.injury_status}
+                </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+                <span>${p.role}</span>
+                <strong style="color: var(--accent-cyan);">Index: ${p.suitability_score}</strong>
+            </div>
+        `;
+        benchContainer.appendChild(bcard);
+    });
+}
+
+// Auto-run on page load
+document.addEventListener('DOMContentLoaded', () => {
+    runAIOptimization();
+
+    const matchSel = document.getElementById('aiMatchSelect');
+    if (matchSel) {
+        matchSel.addEventListener('change', (e) => {
+            const opt = matchSel.options[matchSel.selectedIndex];
+            if (opt && opt.dataset.ground) {
+                document.getElementById('aiGroundSelect').value = opt.dataset.ground;
+                document.getElementById('aiWeatherSelect').value = opt.dataset.weather;
+                runAIOptimization();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

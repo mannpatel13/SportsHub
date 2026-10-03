@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: sportshub
+    runtime: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: python -m gunicorn sportshub_project.wsgi:application --workers 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SECURE_SSL_REDIRECT
+        value: "False"

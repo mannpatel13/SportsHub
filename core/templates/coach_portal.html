@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+
+{% block title %}Coach Portal & Matchday Controls - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+            <span class="badge-pill badge-warning" style="font-size: 0.72rem;">Matchday Control Gateway</span>
+            <span class="badge-pill badge-info" style="font-size: 0.72rem;">SRS FR-6.1 — FR-6.8</span>
+        </div>
+        <h1 class="page-title">Coach Matchday Command Portal</h1>
+        <p class="page-subtitle">Perform emergency substitutions and weather-driven venue overrides with immediate AI re-evaluation & audit trail.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn-saas btn-saas-secondary" onclick="openModal('venueChangeModal')">
+            <i class="fas fa-location-crosshairs"></i> Emergency Venue Override
+        </button>
+        <button class="btn-saas btn-saas-primary" onclick="openModal('substitutionModal'); setTimeout(() => loadSquadPlayersForSub(), 0)">
+            <i class="fas fa-right-left"></i> Emergency Player Substitution
+        </button>
+    </div>
+</div>
+
+<div class="saas-card" style="margin-bottom:1.5rem;border-left:4px solid var(--accent-cyan);">
+    <div class="card-header-flex">
+        <div class="card-title"><i class="fas fa-shield-halved" style="color:var(--accent-cyan);"></i><span>Teams Under Matchday Authority</span></div>
+        <span class="badge-pill badge-info">{{ upcoming_matches|length }} upcoming/live fixtures</span>
+    </div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem;">
+        {% for team in teams %}
+        <a href="{% url 'team_detail' team.id %}" class="badge-pill badge-info" style="text-decoration:none;padding:.55rem .8rem;">
+            {{ team.name }} · {{ team.sport.name }} · {{ team.players.count }} players
+        </a>
+        {% empty %}
+        <span style="color:var(--text-dim);">No managed teams found.</span>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Matchday Active Fixtures -->
+<div class="saas-card" style="margin-bottom: 2rem;">
+    <div class="card-header-flex">
+        <div class="card-title">
+            <i class="fas fa-whistle" style="color: var(--accent-rose);"></i>
+            <span>Active Matchday Fixtures Under Your Authority</span>
+        </div>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">{{ coach.full_name|default:request.user.username }}</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem;">
+        {% for match in upcoming_matches %}
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <strong style="font-size: 1.1rem;">{{ match.home_team.short_code }} vs {{ match.away_team.short_code }}</strong>
+                    <span class="badge-pill {% if match.status == 'LIVE' %}badge-danger{% else %}badge-info{% endif %}">
+                        {{ match.get_status_display }}
+                    </span>
+                </div>
+                
+                <div style="font-size: 0.82rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem;">
+                    <div><i class="fas fa-location-dot" style="color: var(--accent-cyan);"></i> {{ match.venue }} ({{ match.ground_type }})</div>
+                    <div><i class="fas fa-cloud-sun" style="color: var(--accent-amber);"></i> {{ match.weather }}</div>
+                    <div><i class="fas fa-clock"></i> {{ match.scheduled_time|date:"M d, Y @ H:i" }}</div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-saas btn-saas-secondary btn-saas-sm" style="flex: 1;" onclick="prepareSubModal({{ match.id }}, '{{ match.home_team.name|escapejs }}', {{ match.home_team.id }})">
+                    <i class="fas fa-right-left"></i> Substitute
+                </button>
+                <button class="btn-saas btn-saas-secondary btn-saas-sm" style="flex: 1;" onclick="prepareVenueModal({{ match.id }}, '{{ match.venue|escapejs }}')">
+                    <i class="fas fa-map-pin"></i> Change Venue
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-dim); padding: 2rem;">
+            No fixtures are currently assigned. The fixture list is generated from upcoming/live matches for your managed teams.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ====================================================
+     EMERGENCY SUBSTITUTION MODAL (FR-6.2, FR-6.3, FR-6.6)
+     ==================================================== -->
+<div class="modal-overlay" id="substitutionModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div>
+                <h2 style="font-size: 1.35rem;">Emergency Player Substitution</h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Triggers immediate AI re-evaluation & auditable logging</div>
+            </div>
+            <button onclick="closeModal('substitutionModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="subForm" onsubmit="submitSubstitution(event)">
+            <div style="margin-bottom: 1rem;">
+                <label class="form-label-custom">Select Match Fixture *</label>
+                <select id="subMatchSelect" required class="form-input-custom" onchange="loadSquadPlayersForSub()">
+                    {% for m in upcoming_matches %}
+                    <option value="{{ m.id }}" data-home-team-id="{{ m.home_team.id }}" data-away-team-id="{{ m.away_team.id }}">{{ m.home_team.name }} vs {{ m.away_team.name }} • {{ m.get_status_display }}</option>
+                    {% empty %}<option value="">No scheduled/live fixtures available</option>{% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom" style="color: var(--accent-rose);">Outgoing Athlete (Injured / Sidelined) *</label><div id="subTeamContext" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.35rem;"></div>
+                    <select id="subOutgoingSelect" required class="form-input-custom">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom" style="color: var(--accent-lime);">Replacement Athlete (Eligible Bench) *</label>
+                    <select id="subIncomingSelect" required class="form-input-custom">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label class="form-label-custom">Mandatory Audit Justification (FR-6.6) *</label>
+                <textarea id="subReason" required class="form-input-custom" rows="3" placeholder="State exact cause: e.g. 'Player experienced sudden hamstring strain during warmup. Replaced with tactical reserve.'"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('substitutionModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Confirm & Recalculate AI</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====================================================
+     EMERGENCY VENUE OVERRIDE MODAL (FR-6.4, FR-6.5)
+     ==================================================== -->
+<div class="modal-overlay" id="venueChangeModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div>
+                <h2 style="font-size: 1.35rem;">Emergency Venue & Pitch Override</h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Switch venue due to sudden rain, waterlogging, or surface hazards</div>
+            </div>
+            <button onclick="closeModal('venueChangeModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="venueForm" onsubmit="submitVenueChange(event)">
+            <div style="margin-bottom: 1rem;">
+                <label class="form-label-custom">Select Match Fixture *</label>
+                <select id="venueMatchSelect" required class="form-input-custom">
+                    {% for m in upcoming_matches %}
+                    <option value="{{ m.id }}">{{ m.home_team.short_code }} vs {{ m.away_team.short_code }} ({{ m.get_status_display }}) • {{ m.venue }}</option>
+                    {% empty %}<option value="">No scheduled/live fixtures available</option>{% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">New Active Alternate Venue *</label>
+                    <input type="text" id="newVenueInput" required class="form-input-custom" placeholder="e.g. Indus Covered Indoor Dome B">
+                </div>
+                <div>
+                    <label class="form-label-custom">New Surface Type</label>
+                    <select id="newGroundSelect" class="form-input-custom">
+                        <option value="Turf">Artificial Turf</option>
+                        <option value="Grass">Natural Grass</option>
+                        <option value="Indoor">Indoor Arena</option>
+                        <option value="Clay">Clay Court</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label class="form-label-custom">Mandatory Weather / Environmental Justification *</label>
+                <textarea id="venueReason" required class="form-input-custom" rows="3" placeholder="e.g. 'Sudden torrential rainfall flooded primary pitch drainage channels. Moving to covered indoor synthetic arena.'"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('venueChangeModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Apply Venue Override</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function getCsrfToken() {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken=')) {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    return cookieValue || '{{ csrf_token }}';
+}
+
+const managedTeamIds = [{% for t in teams %}{{ t.id }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+function getManagedTeamForMatch(matchId) {
+    const matchSel = document.getElementById('subMatchSelect');
+    const opt = matchSel ? matchSel.querySelector(`option[value="${matchId}"]`) : null;
+    if (!opt) return null;
+    const home = Number(opt.dataset.homeTeamId);
+    const away = Number(opt.dataset.awayTeamId);
+    if (managedTeamIds.includes(home)) return home;
+    if (managedTeamIds.includes(away)) return away;
+    return home || away || null;
+}
+
+function prepareSubModal(matchId, teamName, teamId) {
+    const matchSel = document.getElementById('subMatchSelect');
+    if (matchSel) matchSel.value = matchId;
+    const managed = getManagedTeamForMatch(matchId);
+    loadSquadPlayersForSub(managed || teamId, matchId);
+    openModal('substitutionModal');
+}
+
+function prepareVenueModal(matchId, currentVenue) {
+    const venueSel = document.getElementById('venueMatchSelect');
+    if (venueSel) {
+        venueSel.value = matchId;
+    }
+    document.getElementById('newVenueInput').value = `${currentVenue} - Alternate Pitch`;
+    openModal('venueChangeModal');
+}
+
+async function loadSquadPlayersForSub(preferredTeamId = null, preferredMatchId = null) {
+    const matchSel = document.getElementById('subMatchSelect');
+    if (!matchSel) return;
+    
+    const matchId = preferredMatchId || matchSel.value;
+    const opt = matchSel.options[matchSel.selectedIndex];
+    const teamId = preferredTeamId || getManagedTeamForMatch(matchId) || (opt ? (opt.dataset.homeTeamId || opt.dataset.awayTeamId) : null);
+
+    if (!teamId || !matchId) return;
+    const teamContext = document.getElementById('subTeamContext');
+    if (teamContext) {
+        const selectedTeam = managedTeamIds.includes(Number(teamId)) ? `Managed team #${teamId}` : `Team #${teamId}`;
+        teamContext.textContent = `${selectedTeam} • loading current AI XI and eligible bench`;
+    }
+
+    const outSel = document.getElementById('subOutgoingSelect');
+    const inSel = document.getElementById('subIncomingSelect');
+    outSel.innerHTML = '<option value="">Loading squad athletes...</option>';
+    inSel.innerHTML = '<option value="">Loading reserve athletes...</option>';
+
+    try {
+        const res = await fetch(`/api/ai/run-lineup/?team_id=${teamId}&match_id=${matchId}`);
+        const data = await res.json();
+
+        outSel.innerHTML = '';
+        inSel.innerHTML = '';
+
+        if (data.starting_xi && data.starting_xi.length > 0) {
+            data.starting_xi.forEach(p => {
+                outSel.innerHTML += `<option value="${p.player_id}">#${p.jersey_number} ${p.name} (${p.role}) - Fit ${p.norm_fitness}%</option>`;
+            });
+        }
+
+        if (data.bench && data.bench.length > 0) {
+            data.bench.forEach(p => {
+                inSel.innerHTML += `<option value="${p.player_id}">#${p.jersey_number} ${p.name} (${p.role}) - Fit ${p.norm_fitness}%</option>`;
+            });
+        } else if (data.starting_xi && data.starting_xi.length > 0) {
+            data.starting_xi.forEach(p => {
+                inSel.innerHTML += `<option value="${p.player_id}">#${p.jersey_number} ${p.name} (${p.role})</option>`;
+            });
+        }
+    } catch (e) {
+        console.error('Error loading players for substitution', e);
+        outSel.innerHTML = '<option value="">Error loading squad</option>';
+        inSel.innerHTML = '<option value="">Error loading squad</option>';
+    }
+}
+
+async function submitSubstitution(e) {
+    e.preventDefault();
+    const matchId = document.getElementById('subMatchSelect').value;
+    const outPlayer = document.getElementById('subOutgoingSelect').value;
+    const inPlayer = document.getElementById('subIncomingSelect').value;
+    const reason = document.getElementById('subReason').value;
+
+    if (!outPlayer || !inPlayer) {
+        showToast('Please select both outgoing and replacement athletes.', 'error');
+        return;
+    }
+    if (outPlayer === inPlayer) {
+        showToast('Outgoing and replacement athletes cannot be the same person.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/coach/substitute/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                match_id: matchId,
+                outgoing_player_id: outPlayer,
+                incoming_player_id: inPlayer,
+                reason: reason
+            })
+        });
+
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeModal('substitutionModal');
+            showToast(data.message, 'success');
+            fireConfetti();
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (err) {
+        showToast('Substitution request failed. Please check inputs.', 'error');
+    }
+}
+
+async function submitVenueChange(e) {
+    e.preventDefault();
+    const matchId = document.getElementById('venueMatchSelect').value;
+    const newVenue = document.getElementById('newVenueInput').value;
+    const newGround = document.getElementById('newGroundSelect').value;
+    const reason = document.getElementById('venueReason').value;
+
+    try {
+        const res = await fetch('/api/coach/venue-change/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                match_id: matchId,
+                new_venue: newVenue,
+                new_ground_type: newGround,
+                reason: reason
+            })
+        });
+
+        const data = await res.json();
+        if (data.status === 'success') {
+            closeModal('venueChangeModal');
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (err) {
+        showToast('Venue override request failed', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSquadPlayersForSub();
+});
+</script>
+{% endblock %}

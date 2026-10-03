@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Automated Analytics & PDF Reports - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+            <span class="badge-pill badge-info" style="font-size: 0.72rem;">SRS FR-7.1 — FR-7.5</span>
+        </div>
+        <h1 class="page-title">Executive Analytics & Reports Engine</h1>
+        <p class="page-subtitle">Auto-generated performance sheets, team standing metrics, and one-click PDF export.</p>
+    </div>
+    <button class="btn-saas btn-saas-primary" onclick="window.location.href='{% url 'reports_export_pdf' %}'">
+        <i class="fas fa-file-pdf"></i>
+        <span>Export Official PDF Report</span>
+    </button>
+</div>
+
+<!-- Exportable Report Container -->
+<div id="printableReportArea" style="display: flex; flex-direction: column; gap: 2rem;">
+
+    <!-- Top Report Summary Card -->
+    <div class="saas-card saas-card-glow" style="border-top: 4px solid var(--accent-lime);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+                <span class="badge-pill badge-success" style="margin-bottom: 0.5rem;">Indus University Sports Platform</span>
+                <h2 style="font-size: 1.6rem; margin: 0;">SportsHub 2026 Performance Analytics Report</h2>
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Prepared by: Mann Patel & Riya Patel • Guide: Prof. Krupali Dave
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.8rem; color: var(--text-dim);">Generated Timestamp</div>
+                <strong style="color: var(--accent-neon); font-size: 0.95rem;">{% now "F j, Y, H:i" %} IST</strong>
+            </div>
+        </div>
+
+        <div class="grid-stats" style="margin-bottom: 0;">
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Active Teams</span>
+                <div style="font-size: 1.6rem; font-weight: 900; font-family: var(--font-display);">{{ teams.count }}</div>
+            </div>
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Tracked Athletes</span>
+                <div style="font-size: 1.6rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-lime);">{{ players_count_total }}</div>
+            </div>
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Completed Fixtures</span>
+                <div style="font-size: 1.6rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-cyan);">{{ completed_matches_count }}</div>
+            </div>
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); text-align: center;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Tournaments</span>
+                <div style="font-size: 1.6rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-purple);">{{ tournaments.count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid-2col">
+        <!-- Team Performance Chart -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-trophy" style="color: var(--accent-amber);"></i>
+                    <span>Team Win Ratio Comparisons</span>
+                </div>
+            </div>
+            <div style="height: 240px; position: relative;">
+                <canvas id="reportTeamsChart"></canvas>
+                <div id="reportTeamsFallback" style="display:flex;flex-direction:column;gap:.55rem;overflow:auto;height:100%;padding:.2rem .5rem;">
+                    {% for t in report_team_data %}
+                    <div style="display:grid;grid-template-columns:55px 1fr 50px;gap:.55rem;align-items:center;font-size:.72rem;">
+                        <strong>{{ t.label }}</strong>
+                        <div style="height:10px;background:var(--bg-secondary);border-radius:99px;overflow:hidden;"><div style="width:{{ t.win_rate }}%;height:100%;background:linear-gradient(90deg,var(--accent-lime),var(--accent-cyan));"></div></div>
+                        <span>{{ t.win_rate }}%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Squad Positional Distribution -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-pie-chart" style="color: var(--accent-purple);"></i>
+                    <span>Player Positional Breakdown</span>
+                </div>
+            </div>
+            <div style="height: 240px; position: relative;">
+                <canvas id="reportRolesChart"></canvas>
+                <div id="reportRolesFallback" style="display:flex;flex-direction:column;gap:.45rem;overflow:auto;height:100%;padding:.2rem .5rem;">
+                    {% for r in role_distribution %}
+                    <div style="display:grid;grid-template-columns:1fr 70px;gap:.5rem;align-items:center;font-size:.74rem;">
+                        <span>{{ r.role }}</span><strong>{{ r.count }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Athlete Performance Table (FR-7.1) -->
+    <div class="saas-card">
+        <div class="card-header-flex">
+            <div class="card-title">
+                <i class="fas fa-star" style="color: var(--accent-lime);"></i>
+                <span>Top Performing Athletes (Ranked by Form & Impact)</span>
+            </div>
+        </div>
+
+        <div class="saas-table-container">
+            <table class="saas-table">
+                <thead>
+                    <tr>
+                        <th>Athlete</th>
+                        <th>Club</th>
+                        <th>Role</th>
+                        <th>Fitness %</th>
+                        <th>Recent Form</th>
+                        <th>Tactical IQ</th>
+                        <th>Goals / Points</th>
+                        <th>Assists</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in top_players %}
+                    <tr>
+                        <td>
+                            <strong>#{{ p.jersey_number }} {{ p.name }}</strong>
+                        </td>
+                        <td>{{ p.team.name|default:"Free Agent" }}</td>
+                        <td><span class="badge-pill badge-info">{{ p.role }}</span></td>
+                        <td>
+                            <strong style="color: var(--accent-lime);">{{ p.fitness_score }}%</strong>
+                        </td>
+                        <td>
+                            <span style="font-weight: 800; color: var(--accent-purple);">{{ p.recent_form }}/10</span>
+                        </td>
+                        <td>{{ p.tactical_awareness }}</td>
+                        <td><strong style="color: var(--accent-neon);">{{ p.goals_scored }}</strong></td>
+                        <td>{{ p.assists }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ report_team_data|json_script:"reportTeamData" }}
+{{ role_distribution|json_script:"roleDistributionData" }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const teamData=JSON.parse(document.getElementById('reportTeamData')?.textContent||'[]');
+    const rolesData=JSON.parse(document.getElementById('roleDistributionData')?.textContent||'[]');
+    const teamCanvas=document.getElementById('reportTeamsChart');
+    if(teamCanvas && window.Chart && teamData.length){
+        new Chart(teamCanvas.getContext('2d'),{type:'bar',data:{labels:teamData.map(x=>x.label),datasets:[{label:'Win Rate %',data:teamData.map(x=>x.win_rate),backgroundColor:'#10B981',borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94A3B8'}},y:{beginAtZero:true,max:100,ticks:{color:'#94A3B8',callback:v=>v+'%'}}}}});
+    }
+    const teamFallback=document.getElementById('reportTeamsFallback');
+    if(teamFallback && teamCanvas && window.Chart && teamData.length) teamFallback.style.display='none';
+    const roleCanvas=document.getElementById('reportRolesChart');
+    if(roleCanvas && window.Chart && rolesData.length){
+        new Chart(roleCanvas.getContext('2d'),{type:'doughnut',data:{labels:rolesData.map(r=>r.role),datasets:[{data:rolesData.map(r=>r.count),backgroundColor:['#10B981','#06B6D4','#8B5CF6','#F59E0B','#EC4899','#3B82F6','#14B8A6','#F43F5E'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'top',labels:{color:'#CBD5E1'}}}}});
+    }
+    const roleFallback=document.getElementById('reportRolesFallback');
+    if(roleFallback && roleCanvas && window.Chart && rolesData.length) roleFallback.style.display='none';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ team.name }} - Squad Roster{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+        <div style="width: 56px; height: 56px; border-radius: 18px; background: {{ team.primary_color }}; color: #000; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; font-family: var(--font-display);">
+            {{ team.short_code }}
+        </div>
+        <div>
+            <h1 class="page-title">{{ team.name }}</h1>
+            <p class="page-subtitle">
+                Coach: <strong>{{ team.coach.full_name|default:"Unassigned" }}</strong> • Ground: <strong>{{ team.home_ground }}</strong>
+            </p>
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{% url 'teams' %}" class="btn-saas btn-saas-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Teams
+        </a>
+        <a href="{% url 'ai_recommendations' %}?team_id={{ team.id }}" class="btn-saas btn-saas-primary">
+            <i class="fas fa-brain"></i> Generate AI Lineup
+        </a>
+    </div>
+</div>
+
+<!-- Team Squad Roster Table (FR-3.2, FR-3.3) -->
+<div class="saas-card" style="margin-bottom: 2rem;">
+    <div class="card-header-flex">
+        <div class="card-title">
+            <i class="fas fa-users" style="color: var(--accent-lime);"></i>
+            <span>Active Squad Athletes ({{ players.count }})</span>
+        </div>
+        <a href="{% url 'players' %}" class="btn-saas btn-saas-secondary btn-saas-sm">
+            <i class="fas fa-user-plus"></i> Add Player to Squad
+        </a>
+    </div>
+
+    <div class="saas-table-container">
+        <table class="saas-table">
+            <thead>
+                <tr>
+                    <th>Athlete</th>
+                    <th>Role</th>
+                    <th>Fitness %</th>
+                    <th>Form</th>
+                    <th>Status</th>
+                    <th>Ground / Weather</th>
+                    <th>Stats</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--bg-secondary); border: 2px solid var(--border-highlight); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; color: var(--accent-neon);">
+                                #{{ player.jersey_number }}
+                            </div>
+                            <div>
+                                <strong>{{ player.name }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);">Age {{ player.age }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge-pill badge-info">{{ player.role }}</span></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <strong style="color: var(--accent-lime);">{{ player.fitness_score }}%</strong>
+                        </div>
+                    </td>
+                    <td>
+                        <span style="font-weight: 700; color: var(--accent-purple);">{{ player.recent_form }}/10</span>
+                    </td>
+                    <td>
+                        <span class="badge-pill {{ player.injury_badge_class }}">
+                            {{ player.get_injury_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <small style="color: var(--text-muted);">{{ player.preferred_ground }} • {{ player.preferred_weather }}</small>
+                    </td>
+                    <td>
+                        <span style="font-size: 0.82rem; font-weight: 600;">{{ player.goals_scored }}G / {{ player.assists }}A</span>
+                    </td>
+                    <td>
+                        <button class="btn-saas btn-saas-secondary btn-saas-sm" onclick="viewPlayerModal({{ player.id }})">
+                            <i class="fas fa-chart-radar"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: var(--text-dim); padding: 2rem;">No players assigned to this roster yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

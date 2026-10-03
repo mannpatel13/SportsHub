@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}Fixtures & Matchdays - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Match Calendar & Fixtures</h1>
+        <p class="page-subtitle">Schedule matches, configure venue/ground conditions, and enter live match centers.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{% url 'match_history' %}" class="btn-saas btn-saas-secondary">
+            <i class="fas fa-trophy" style="color: var(--accent-amber);"></i>
+            <span>Date-wise Match History</span>
+        </a>
+        <button class="btn-saas btn-saas-primary" onclick="openModal('scheduleMatchModal')">
+            <i class="fas fa-calendar-plus"></i>
+            <span>Schedule Fixture</span>
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div style="display: flex; gap: 0.75rem; margin-bottom: 1.75rem; flex-wrap: wrap; align-items: center;">
+    <a href="{% url 'matches' %}" class="btn-saas {% if not selected_status %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+        All Fixtures
+    </a>
+    <a href="{% url 'matches' %}?status=LIVE" class="btn-saas {% if selected_status == 'LIVE' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+        <span class="pulse-indicator" style="margin-right: 4px;"></span> Live Now
+    </a>
+    <a href="{% url 'matches' %}?status=SCHEDULED" class="btn-saas {% if selected_status == 'SCHEDULED' %}btn-saas-primary{% else %}btn-saas-secondary{% endif %} btn-saas-sm">
+        Scheduled Upcoming
+    </a>
+    <a href="{% url 'match_history' %}" class="btn-saas btn-saas-secondary btn-saas-sm" style="border-color: rgba(16, 185, 129, 0.4);">
+        <i class="fas fa-trophy" style="color: var(--accent-lime);"></i> Date-Wise Winner Archive →
+    </a>
+</div>
+
+<!-- Matches Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem;">
+    {% for match in matches %}
+    <div class="saas-card {% if match.status == 'LIVE' %}saas-card-glow{% endif %}" style="border-left: 4px solid {% if match.status == 'LIVE' %}var(--accent-rose){% elif match.status == 'COMPLETED' %}var(--accent-lime){% else %}var(--accent-cyan){% endif %};">
+        <div class="card-header-flex">
+            <span class="badge-pill {% if match.status == 'LIVE' %}badge-danger{% elif match.status == 'COMPLETED' %}badge-success{% else %}badge-info{% endif %}">
+                {% if match.status == 'LIVE' %}<span class="pulse-indicator"></span> LIVE NOW{% else %}{{ match.get_status_display }}{% endif %}
+            </span>
+            <span style="font-size: 0.8rem; color: var(--text-dim);">
+                {{ match.tournament.name|default:match.sport.name }}
+            </span>
+        </div>
+
+        <!-- Team Score Lineup -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; border-bottom: 1px solid var(--border-color);">
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 1.2rem; font-weight: 800; font-family: var(--font-display);">{{ match.home_team.short_code }}</div>
+                <small style="color: var(--text-muted);">{{ match.home_team.name|truncatechars:16 }}</small>
+            </div>
+
+            <div style="background: var(--bg-secondary); padding: 0.5rem 1.25rem; border-radius: var(--radius-md); text-align: center;">
+                <div style="font-size: 1.8rem; font-weight: 900; font-family: var(--font-display); color: var(--accent-neon);">
+                    {{ match.home_score }} - {{ match.away_score }}
+                </div>
+                <small style="font-size: 0.7rem; color: var(--text-dim);">{{ match.scheduled_time|date:"H:i A" }}</small>
+            </div>
+
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 1.2rem; font-weight: 800; font-family: var(--font-display);">{{ match.away_team.short_code }}</div>
+                <small style="color: var(--text-muted);">{{ match.away_team.name|truncatechars:16 }}</small>
+            </div>
+        </div>
+
+        <!-- Venue & Weather Conditions -->
+        <div style="padding: 0.9rem 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.82rem;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-location-dot" style="color: var(--accent-cyan);"></i> Venue:</span>
+                <strong>{{ match.venue }} ({{ match.ground_type }})</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-cloud-sun" style="color: var(--accent-amber);"></i> Weather Forecast:</span>
+                <span>{{ match.weather }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-clock"></i> Scheduled:</span>
+                <span>{{ match.scheduled_time|date:"M d, Y @ H:i" }}</span>
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem;">
+            <a href="{% url 'live_match' match.id %}" class="btn-saas btn-saas-secondary btn-saas-sm" style="flex: 1; text-align: center;">
+                <i class="fas fa-tv"></i> Live Scorer
+            </a>
+            <a href="{% url 'ai_recommendations' %}?team_id={{ match.home_team.id }}&match_id={{ match.id }}" class="btn-saas btn-saas-primary btn-saas-sm" style="flex: 1; text-align: center;">
+                <i class="fas fa-brain"></i> AI Lineup
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-dim);">
+        <h3>No matches found for the selected filter.</h3>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ====================================================
+     SCHEDULE MATCH MODAL (FR-4.1)
+     ==================================================== -->
+<div class="modal-overlay" id="scheduleMatchModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.4rem;">Schedule New Fixture</h2>
+            <button onclick="closeModal('scheduleMatchModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'match_schedule' %}">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Home Squad *</label>
+                    <select name="home_team" required class="form-input-custom">
+                        {% for t in teams %}
+                        <option value="{{ t.id }}">{{ t.name }} ({{ t.sport.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Away Squad *</label>
+                    <select name="away_team" required class="form-input-custom">
+                        {% for t in teams %}
+                        <option value="{{ t.id }}">{{ t.name }} ({{ t.sport.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label class="form-label-custom">Tournament Championship</label>
+                <select name="tournament" class="form-input-custom">
+                    <option value="">-- Friendly / Independent Match --</option>
+                    {% for tour in tournaments %}
+                    <option value="{{ tour.id }}">{{ tour.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Date & Time *</label>
+                    <input type="datetime-local" name="scheduled_time" required class="form-input-custom">
+                </div>
+                <div>
+                    <label class="form-label-custom">Venue Name *</label>
+                    <input type="text" name="venue" required class="form-input-custom" value="Indus Main Arena Stadium">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label class="form-label-custom">Ground Surface</label>
+                    <select name="ground_type" class="form-input-custom">
+                        <option value="Grass">Natural Grass</option>
+                        <option value="Turf">Artificial Turf</option>
+                        <option value="Clay">Clay / Hard Pitch</option>
+                        <option value="Indoor">Indoor Arena</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Weather Forecast</label>
+                    <select name="weather" class="form-input-custom">
+                        <option value="Sunny">Clear & Sunny</option>
+                        <option value="Rainy">Wet & Rainy</option>
+                        <option value="Humid">Humid & Hot</option>
+                        <option value="Windy">High Wind Gusts</option>
+                        <option value="Overcast">Overcast & Mild</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('scheduleMatchModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Confirm Fixture</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modal=document.getElementById('scheduleMatchModal'); if(!modal) return;
+  const home=modal.querySelector('select[name="home_team"]'); const away=modal.querySelector('select[name="away_team"]');
+  if(!home || !away) return;
+  function ensureDifferent(){ if(home.value===away.value){ const opt=Array.from(away.options).find(o=>o.value && o.value!==home.value); if(opt) away.value=opt.value; } }
+  ensureDifferent(); home.addEventListener('change',ensureDifferent);
+  modal.querySelector('form').addEventListener('submit',function(e){ if(home.value===away.value){ e.preventDefault(); if(window.showToast) window.showToast('Home and away teams must be different.','error'); } });
+});
+</script>
+{% endblock %}

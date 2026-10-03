@@ -1,0 +1,553 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - SportsHub AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            {% if is_coach %}
+                Welcome Coach {{ coach.full_name }}
+            {% elif is_player %}
+                Welcome {{ player.name }}
+            {% else %}
+                Executive Command Hub
+            {% endif %}
+        </h1>
+        <p class="page-subtitle">
+            {% if is_coach %}
+                Managing {{ teams.count }} squad(s) with AI matchday tactical intelligence.
+            {% elif is_player %}
+                Manage your team membership, invitations, fixtures, and player performance from one hub.
+            {% else %}
+                Real-time overview of players, live fixtures, AI recommendations, and coach overrides.
+            {% endif %}
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        {% if not is_player and is_coach or not is_player and request.user.is_staff or not is_player and request.user.is_superuser %}<a href="{% url 'coach_portal' %}" class="btn-saas btn-saas-secondary">
+            <i class="fas fa-user-shield"></i>
+            <span>Matchday Override</span>
+        </a>{% endif %}
+        <a href="{% url 'ai_recommendations' %}" class="btn-saas btn-saas-primary">
+            <i class="fas fa-brain"></i>
+            <span>AI Lineup Advisor</span>
+        </a>
+    </div>
+</div>
+
+{% if is_player %}
+<!-- Player Team Hub -->
+<div class="saas-card saas-card-glow" style="margin-bottom:1.75rem;border-left:4px solid var(--accent-neon);">
+    <div class="card-header-flex">
+        <div>
+            <div class="card-title"><i class="fas fa-users-gear" style="color:var(--accent-neon);"></i><span>Player Team Hub</span></div>
+            <div style="font-size:.82rem;color:var(--text-muted);margin-top:.25rem;">
+                {% if player.team %}Manage your {{ player.team.name }} squad, invitations and membership.{% else %}Create your own squad or join an existing {{ player.sport.name }} team.{% endif %}
+            </div>
+        </div>
+        {% if player.team %}<span class="badge-pill badge-success">Current Team: {{ player.team.name }}</span>{% else %}<span class="badge-pill badge-info">No Team Yet</span>{% endif %}
+    </div>
+
+    {% if player.team %}
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-top:1rem;">
+        <div style="padding:1.1rem;border:1px solid var(--border-color);border-radius:var(--radius-md);background:rgba(16,185,129,.06);">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+                <div><div style="font-weight:800;font-size:1rem;"><i class="fas fa-shield-halved" style="color:var(--accent-lime);"></i> {{ player.team.name }}</div>
+                <p style="font-size:.8rem;color:var(--text-muted);margin:.35rem 0 0;">{{ player.team.short_code }} · {{ managed_team_players.count }} / {{ player.team.sport.lineup_size|add:player.team.sport.bench_size }} recommended squad slots · {{ player.team.sport.name }}</p></div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                    {% if player.team.owner_id == player.id %}<button class="btn-saas btn-saas-primary" onclick="openModal('manageTeamModal')"><i class="fas fa-user-gear"></i> Manage Team</button>{% endif %}
+                    <form method="POST" action="{% url 'player_leave_team' %}" onsubmit="return confirm('Leave {{ player.team.name }}?');">{% csrf_token %}<button class="btn-saas btn-saas-secondary" style="color:var(--accent-rose);border-color:rgba(244,63,94,.3);"><i class="fas fa-arrow-right-from-bracket"></i> Leave Team</button></form>
+                </div>
+            </div>
+            <div style="margin-top:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;">
+                {% for member in managed_team_players %}
+                <div style="padding:.65rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);font-size:.78rem;">
+                    <strong>#{{ member.jersey_number }} {{ member.name }}</strong><div style="color:var(--text-muted);">{{ member.role }}{% if member.email %} · {{ member.email }}{% endif %}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div style="padding:1.1rem;border:1px solid rgba(6,182,212,.25);border-radius:var(--radius-md);background:rgba(6,182,212,.06);">
+            <div style="font-weight:800;font-size:1rem;"><i class="fas fa-envelope-open-text" style="color:var(--accent-cyan);"></i> Team Invitations</div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin:.35rem 0 .9rem;">Invite teammates by Gmail/email from Manage Team. Registered profiles are linked automatically.</p>
+            {% if player_invitations %}<strong style="font-size:.78rem;color:var(--accent-amber);">{{ player_invitations|length }} pending invitation(s)</strong>{% else %}<span style="font-size:.78rem;color:var(--text-dim);">No pending invitations.</span>{% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:1rem;margin-top:1rem;">
+        <div style="padding:1.1rem;border:1px solid var(--border-color);border-radius:var(--radius-md);background:rgba(16,185,129,.06);">
+            <div style="font-weight:800;font-size:1rem;margin-bottom:.35rem;"><i class="fas fa-plus-circle" style="color:var(--accent-lime);"></i> Create a Team</div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.9rem;">Build your squad using the correct player count for the selected sport and save each teammate's name + Gmail/email.</p>
+            <button class="btn-saas btn-saas-primary" onclick="openModal('playerCreateTeamModal')"><i class="fas fa-shield-plus"></i> Create Team</button>
+        </div>
+        <div style="padding:1.1rem;border:1px solid var(--border-color);border-radius:var(--radius-md);background:rgba(6,182,212,.06);">
+            <div style="font-weight:800;font-size:1rem;margin-bottom:.35rem;"><i class="fas fa-user-plus" style="color:var(--accent-cyan);"></i> Join a Team</div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.9rem;">Choose an existing {{ player.sport.name }} team or enter its short code.</p>
+            <button class="btn-saas btn-saas-secondary" onclick="openModal('playerJoinTeamModal')"><i class="fas fa-right-to-bracket"></i> Join Team</button>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if player_invitations and not player.team %}
+    <div style="margin-top:1rem;padding:.9rem;border:1px solid rgba(245,158,11,.25);border-radius:var(--radius-md);background:rgba(245,158,11,.05);">
+        <div style="font-weight:800;margin-bottom:.35rem;"><i class="fas fa-envelope-open-text" style="color:var(--accent-amber);"></i> Pending Team Invitations</div>
+        {% for invite in player_invitations %}<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.45rem 0;border-top:1px solid var(--border-color);"><span>{{ invite.team.name }} <small style="color:var(--text-muted);">({{ invite.team.short_code }})</small></span><form method="POST" action="{% url 'player_join_team' %}">{% csrf_token %}<input type="hidden" name="team_id" value="{{ invite.team.id }}"><button class="btn-saas btn-saas-primary btn-saas-sm">Accept & Join</button></form></div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Team Modal -->
+{% if not player.team %}
+<div class="modal-overlay" id="playerCreateTeamModal">
+    <div class="modal-box" style="max-width:860px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;"><div><h2 style="font-size:1.4rem;">Create Your Team</h2><div style="font-size:.8rem;color:var(--text-muted);">The player count changes automatically according to the selected sport.</div></div><button type="button" onclick="closeModal('playerCreateTeamModal')" style="background:none;border:0;color:var(--text-muted);font-size:1.2rem;"><i class="fas fa-times"></i></button></div>
+        <form method="POST" action="{% url 'player_create_team' %}">{% csrf_token %}
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.9rem;margin-bottom:1rem;">
+                <div><label class="form-label-custom">Team Name *</label><input name="name" required class="form-input-custom" placeholder="e.g. Indus Warriors"></div>
+                <div><label class="form-label-custom">Team Code *</label><input name="short_code" required maxlength="10" class="form-input-custom" placeholder="IWAR"></div>
+                <div><label class="form-label-custom">Sport *</label><select id="createTeamSport" name="sport" required class="form-input-custom" onchange="updateSportSquadSlots()">{% for sp in sports %}<option value="{{ sp.id }}" data-lineup="{{ sp.lineup_size }}" data-bench="{{ sp.bench_size }}" {% if sp.id == player.sport_id %}selected{% endif %}>{{ sp.name }}</option>{% endfor %}</select></div>
+            </div>
+            <div id="sportSquadInfo" style="padding:.7rem .9rem;margin-bottom:1rem;border:1px solid rgba(6,182,212,.25);border-radius:10px;background:rgba(6,182,212,.06);font-size:.8rem;color:var(--text-muted);"></div>
+            <div style="margin-bottom:.8rem;"><label class="form-label-custom">Home Ground</label><input name="home_ground" class="form-input-custom" value="Indus Central Stadium"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;"><div><h3 style="font-size:1rem;">Teammate Profiles</h3><div style="font-size:.75rem;color:var(--text-muted);">Enter up to the required squad size. You can add/remove players later from Manage Team.</div></div><button type="button" class="btn-saas btn-saas-secondary btn-saas-sm" onclick="addMemberRow()"><i class="fas fa-plus"></i> Add Member</button></div>
+            <div id="memberRows" style="display:flex;flex-direction:column;gap:.55rem;max-height:320px;overflow:auto;padding-right:.2rem;"></div>
+            <div style="display:flex;justify-content:flex-end;gap:.7rem;margin-top:1.2rem;"><button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('playerCreateTeamModal')">Cancel</button><button class="btn-saas btn-saas-primary"><i class="fas fa-shield"></i> Create Team & Save Profiles</button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Manage Team Modal -->
+{% if player.team and player.team.owner_id == player.id %}
+<div class="modal-overlay" id="manageTeamModal">
+    <div class="modal-box" style="max-width:900px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;"><div><h2 style="font-size:1.4rem;">Manage {{ player.team.name }}</h2><div style="font-size:.8rem;color:var(--text-muted);">Add new player profiles or remove existing squad members.</div></div><button type="button" onclick="closeModal('manageTeamModal')" style="background:none;border:0;color:var(--text-muted);font-size:1.2rem;"><i class="fas fa-times"></i></button></div>
+        <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:1rem;">
+            <div>
+                <h3 style="font-size:1rem;margin-bottom:.6rem;">Current Squad ({{ managed_team_players.count }})</h3>
+                <div style="display:flex;flex-direction:column;gap:.5rem;max-height:420px;overflow:auto;">
+                {% for member in managed_team_players %}
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.7rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);">
+                        <div><strong>#{{ member.jersey_number }} {{ member.name }}</strong><div style="font-size:.72rem;color:var(--text-muted);">{{ member.role }}{% if member.email %} · {{ member.email }}{% endif %}{% if member.id == player.id %} · Owner{% endif %}</div></div>
+                        {% if member.id != player.id %}
+                        <div style="display:flex;gap:.35rem;">
+                            <button type="button" class="btn-saas btn-saas-secondary btn-saas-sm" onclick="openModal('editMember{{ member.id }}')" title="Edit player"><i class="fas fa-pen"></i></button>
+                            <form method="POST" action="{% url 'player_team_remove_member' member.id %}" onsubmit="return confirm('Remove {{ member.name }} from the team?');">{% csrf_token %}<button class="btn-saas btn-saas-secondary btn-saas-sm" style="color:var(--accent-rose);border-color:rgba(244,63,94,.3);" title="Remove player"><i class="fas fa-trash"></i></button></form>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+            <div>
+                <h3 style="font-size:1rem;margin-bottom:.6rem;">Add Player Profile</h3>
+                <form method="POST" action="{% url 'player_team_add_member' %}">{% csrf_token %}
+                    <label class="form-label-custom">Full Name *</label><input name="member_name" required class="form-input-custom" placeholder="Player name" style="margin-bottom:.7rem;">
+                    <label class="form-label-custom">Gmail / Email *</label><input type="email" name="member_email" required class="form-input-custom" placeholder="player@gmail.com" style="margin-bottom:.7rem;">
+                    <label class="form-label-custom">Role</label><input name="member_role" class="form-input-custom" value="Forward" style="margin-bottom:.7rem;">
+                    <label class="form-label-custom">Jersey Number</label><input type="number" name="member_jersey" class="form-input-custom" value="10" min="0" max="999" style="margin-bottom:.9rem;">
+                    <button class="btn-saas btn-saas-primary" style="width:100%;"><i class="fas fa-user-plus"></i> Add Player</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% for member in managed_team_players %}
+{% if member.id != player.id %}
+<div class="modal-overlay" id="editMember{{ member.id }}">
+    <div class="modal-box" style="max-width:560px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <div><h2 style="font-size:1.3rem;">Edit {{ member.name }}</h2><div style="font-size:.78rem;color:var(--text-muted);">Update the roster profile without removing the player.</div></div>
+            <button type="button" onclick="closeModal('editMember{{ member.id }}')" style="background:none;border:0;color:var(--text-muted);font-size:1.2rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="{% url 'player_team_edit_member' member.id %}">
+            {% csrf_token %}
+            <label class="form-label-custom">Full Name *</label>
+            <input name="member_name" required class="form-input-custom" value="{{ member.name }}" style="margin-bottom:.7rem;">
+            <label class="form-label-custom">Gmail / Email *</label>
+            <input type="email" name="member_email" required class="form-input-custom" value="{{ member.email }}" style="margin-bottom:.7rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;">
+                <div><label class="form-label-custom">Role</label><input name="member_role" class="form-input-custom" value="{{ member.role }}"></div>
+                <div><label class="form-label-custom">Jersey Number</label><input type="number" name="member_jersey" min="0" max="999" class="form-input-custom" value="{{ member.jersey_number }}"></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('editMember{{ member.id }}')">Cancel</button>
+                <button class="btn-saas btn-saas-primary"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<!-- Join Team Modal -->
+{% if not player.team %}
+<div class="modal-overlay" id="playerJoinTeamModal">
+    <div class="modal-box" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;"><div><h2 style="font-size:1.4rem;">Join a Team</h2><div style="font-size:.8rem;color:var(--text-muted);">Select a {{ player.sport.name }} team or use its short code.</div></div><button type="button" onclick="closeModal('playerJoinTeamModal')" style="background:none;border:0;color:var(--text-muted);font-size:1.2rem;"><i class="fas fa-times"></i></button></div>
+        <form method="POST" action="{% url 'player_join_team' %}">{% csrf_token %}<label class="form-label-custom">Available Teams</label><select name="team_id" class="form-input-custom" style="margin-bottom:.8rem;"><option value="">-- Choose a team --</option>{% for t in available_join_teams %}<option value="{{ t.id }}">{{ t.name }} · {{ t.short_code }} · {{ t.sport.name }}</option>{% endfor %}</select><div style="text-align:center;color:var(--text-muted);font-size:.75rem;margin:.4rem 0;">OR</div><label class="form-label-custom">Team Code</label><input name="join_code" class="form-input-custom" maxlength="10" placeholder="e.g. ITFC" style="text-transform:uppercase;"><div style="display:flex;justify-content:flex-end;margin-top:1.2rem;"><button class="btn-saas btn-saas-primary"><i class="fas fa-right-to-bracket"></i> Join Team</button></div></form>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Dynamic KPI Stat Counters -->
+<div class="grid-stats">
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Total Roster Players</div>
+            <div class="stat-icon-wrapper stat-icon-lime">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ players_count }}">{{ players_count }}</div>
+        <div class="stat-trend" style="color: var(--accent-lime); font-size: 0.78rem;">
+            <i class="fas fa-check-circle"></i> {{ fit_players_count }} Match Fit
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Active Teams</div>
+            <div class="stat-icon-wrapper stat-icon-cyan">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ teams_count }}">{{ teams_count }}</div>
+        <div class="stat-trend" style="color: var(--accent-cyan); font-size: 0.78rem;">
+            <i class="fas fa-trophy"></i> {{ tournaments_count }} Tournaments
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Avg Squad Fitness %</div>
+            <div class="stat-icon-wrapper stat-icon-purple">
+                <i class="fas fa-heartbeat"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ avg_fitness }}">{{ avg_fitness }}%</div>
+        <div class="stat-trend" style="color: var(--accent-purple); font-size: 0.78rem;">
+            <i class="fas fa-chart-line"></i> Avg Form {{ avg_form }}/10
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div class="stat-label">Live Matchdays</div>
+            <div class="stat-icon-wrapper stat-icon-amber">
+                <i class="fas fa-satellite-dish"></i>
+            </div>
+        </div>
+        <div class="stat-value" data-counter="{{ live_matches_count }}">{{ live_matches_count }}</div>
+        <div class="stat-trend" style="color: var(--accent-rose); font-size: 0.78rem;">
+            <span class="pulse-indicator" style="margin-right: 4px;"></span> Real-Time Broadcast
+        </div>
+    </div>
+</div>
+
+{% if is_coach %}
+<div class="saas-card" style="margin-bottom:1.75rem;border-left:4px solid var(--accent-cyan);">
+    <div class="card-header-flex">
+        <div class="card-title"><i class="fas fa-clipboard-list" style="color:var(--accent-cyan);"></i><span>Coach Matchday Control Center</span></div>
+        <a href="{% url 'coach_portal' %}" class="btn-saas btn-saas-primary btn-saas-sm"><i class="fas fa-whistle"></i> Open Matchday</a>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.8rem;margin-top:1rem;">
+        {% for match in upcoming_matches|slice:":4" %}
+        <div style="padding:.9rem;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-secondary);">
+            <strong>{{ match.home_team.short_code }} vs {{ match.away_team.short_code }}</strong>
+            <div style="font-size:.76rem;color:var(--text-muted);margin:.35rem 0;">{{ match.scheduled_time|date:"M d, Y • H:i" }}</div>
+            <div style="font-size:.76rem;color:var(--text-dim);">{{ match.venue }}</div>
+        </div>
+        {% empty %}
+        <div style="color:var(--text-dim);">No fixtures are currently assigned to your teams.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Main 2-Column Dashboard Grid -->
+<div class="grid-2col">
+    <!-- Left Column: Live Matches & Analytics -->
+    <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+        
+        <!-- Live Matches Hero Widget -->
+        {% for match in upcoming_matches %}
+            {% if match.status == 'LIVE' %}
+            <div class="saas-card saas-card-glow" style="border-left: 4px solid var(--accent-rose); background: linear-gradient(135deg, rgba(244,63,94,0.08), var(--bg-card));">
+                <div class="card-header-flex">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span class="pulse-indicator"></span>
+                        <span style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; color: var(--accent-rose); letter-spacing: 0.05em;">
+                            LIVE IN PLAY — {{ match.sport.name }}
+                        </span>
+                    </div>
+                    <span class="badge-pill badge-info">
+                        <i class="fas fa-location-dot"></i> {{ match.venue }} ({{ match.ground_type }})
+                    </span>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; text-align: center; gap: 0.5rem;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 1.15rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ match.home_team.name }}</div>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">Home ({{ match.home_team.short_code }})</span>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); border: 2px solid var(--border-highlight); padding: 0.5rem 1.25rem; border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.3); flex-shrink: 0;">
+                        <div style="font-size: 1.8rem; font-weight: 900; color: var(--accent-neon); letter-spacing: 0.05em; line-height: 1;">
+                            {{ match.home_score }} : {{ match.away_score }}
+                        </div>
+                        <span style="font-size: 0.65rem; text-transform: uppercase; font-weight: 800; color: var(--accent-rose); display: block; margin-top: 4px;">Live Match</span>
+                    </div>
+
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 1.15rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ match.away_team.name }}</div>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">Away ({{ match.away_team.short_code }})</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; pt: 1rem; border-top: 1px solid var(--border-color);">
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        <i class="fas fa-cloud-sun" style="color: var(--accent-amber);"></i> {{ match.weather }}
+                    </span>
+                    <a href="{% url 'live_match' match.id %}" class="btn-saas btn-saas-primary btn-saas-sm">
+                        <i class="fas fa-stopwatch"></i> Open Live Scorer
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Analytics Visual Chart -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-chart-line" style="color: var(--accent-lime);"></i>
+                    <span>Team Standings & Win Ratios</span>
+                </div>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Indus League 2026</span>
+            </div>
+            <div style="height: 250px; position: relative;">
+                <canvas id="teamPerformanceChart"></canvas>
+                <div id="teamPerformanceFallback" style="display:flex;flex-direction:column;gap:.5rem;overflow:auto;height:100%;padding:.2rem .5rem;">
+                    {% for t in team_chart_data %}
+                    <div style="display:grid;grid-template-columns:55px 1fr 38px;gap:.55rem;align-items:center;font-size:.72rem;">
+                        <strong>{{ t.label }}</strong>
+                        <div style="height:10px;background:var(--bg-secondary);border-radius:99px;overflow:hidden;">
+                            <div style="width:{{ t.win_rate }}%;height:100%;background:linear-gradient(90deg,var(--accent-lime),var(--accent-cyan));"></div>
+                        </div>
+                        <span style="color:var(--text-muted);">{{ t.wins }}W</span>
+                    </div>
+                    {% empty %}<span style="color:var(--text-dim);">No standings data yet.</span>{% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Fixtures Table -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-calendar-check" style="color: var(--accent-cyan);"></i>
+                    <span>Upcoming Match Fixtures ({{ upcoming_matches.count }})</span>
+                </div>
+                <a href="{% url 'matches' %}" style="font-size: 0.82rem; font-weight: 700; color: var(--accent-lime);">View All →</a>
+            </div>
+            <div class="saas-table-container">
+                <table class="saas-table">
+                    <thead>
+                        <tr>
+                            <th>Fixture</th>
+                            <th>Date & Time</th>
+                            <th>Venue / Ground</th>
+                            <th>Weather</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in upcoming_matches %}
+                        <tr>
+                            <td>
+                                <strong style="font-size: 0.95rem;">{{ match.home_team.name }} vs {{ match.away_team.name }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ match.tournament.name|default:match.sport.name }}</div>
+                            </td>
+                            <td>
+                                <div>{{ match.scheduled_time|date:"M d, Y" }}</div>
+                                <small style="color: var(--text-dim);">{{ match.scheduled_time|date:"H:i A" }}</small>
+                            </td>
+                            <td>
+                                <div>{{ match.venue }}</div>
+                                <span class="badge-pill badge-info" style="font-size: 0.68rem;">{{ match.ground_type }}</span>
+                            </td>
+                            <td>
+                                <span style="font-size: 0.82rem;">
+                                    <i class="fas fa-cloud-sun" style="color: var(--accent-amber);"></i> {{ match.weather }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'ai_recommendations' %}?team_id={{ match.home_team.id }}&match_id={{ match.id }}" class="btn-saas btn-saas-secondary btn-saas-sm" title="Compute AI Lineup">
+                                    <i class="fas fa-brain"></i> AI Pick
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">No upcoming matches scheduled.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Completed Match History Table -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-history" style="color: var(--accent-lime);"></i>
+                    <span>Match History & Results Archive ({{ recent_matches.count }})</span>
+                </div>
+                <a href="{% url 'matches' %}?status=COMPLETED" style="font-size: 0.82rem; font-weight: 700; color: var(--accent-lime);">View All Results →</a>
+            </div>
+            <div class="saas-table-container">
+                <table class="saas-table">
+                    <thead>
+                        <tr>
+                            <th>Fixture & Date</th>
+                            <th>Final Score</th>
+                            <th>Venue & Ground</th>
+                            <th>Outcome & Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in recent_matches %}
+                        <tr>
+                            <td>
+                                <strong style="font-size: 0.92rem;">{{ match.home_team.short_code }} vs {{ match.away_team.short_code }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);">{{ match.scheduled_time|date:"M d, Y" }}</div>
+                            </td>
+                            <td>
+                                <span style="font-weight: 900; font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-neon); background: var(--bg-secondary); padding: 0.3rem 0.75rem; border-radius: 8px;">
+                                    {{ match.home_score }} - {{ match.away_score }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.82rem;">{{ match.venue }}</div>
+                                <span class="badge-pill badge-info" style="font-size: 0.65rem;">{{ match.ground_type }}</span>
+                            </td>
+                            <td>
+                                {% if match.winner %}
+                                    <span class="badge-pill badge-success" style="font-size: 0.72rem;">
+                                        <i class="fas fa-trophy"></i> {{ match.winner.name }} Won
+                                    </span>
+                                {% else %}
+                                    <span class="badge-pill badge-warning" style="font-size: 0.72rem;">Draw</span>
+                                {% endif %}
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                    {{ match.summary_notes|truncatechars:45 }}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">No completed match history yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Squad Health, Coach Overrides & AI Insights -->
+    <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+        
+        <!-- Squad Health Donut -->
+        <div class="saas-card">
+            <div class="card-header-flex">
+                <div class="card-title">
+                    <i class="fas fa-heart-pulse" style="color: var(--accent-rose);"></i>
+                    <span>Squad Fitness & Health</span>
+                </div>
+            </div>
+            <div style="height: 200px; position: relative;">
+                <canvas id="fitnessDonutChart"></canvas>
+            </div>
+            <div style="display: flex; justify-content: space-around; margin-top: 1rem; text-align: center; font-size: 0.82rem;">
+                <div>
+                    <span style="display: block; font-weight: 800; color: var(--accent-lime); font-size: 1.1rem;">{{ fit_players_count }}</span>
+                    <span style="color: var(--text-muted);">Fit (100%)</span>
+                </div>
+                <div>
+                    <span style="display: block; font-weight: 800; color: var(--accent-amber); font-size: 1.1rem;">{{ minor_issue_count }}</span>
+                    <span style="color: var(--text-muted);">Minor Knock</span>
+                </div>
+                <div>
+                    <span style="display: block; font-weight: 800; color: var(--accent-rose); font-size: 1.1rem;">{{ injured_players_count }}</span>
+                    <span style="color: var(--text-muted);">Injured</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick AI Recommendation Promo -->
+        <div class="saas-card saas-card-glow" style="background: linear-gradient(135deg, rgba(16,185,129,0.1), var(--bg-card)); border-color: rgba(16,185,129,0.3);">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <div style="width: 44px; height: 44px; border-radius: 12px; background: var(--accent-lime); color: #000; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div>
+                    <h4 style="margin: 0; font-size: 1.05rem;">AI Lineup Optimizer</h4>
+                    <p style="margin: 0; font-size: 0.78rem; color: var(--text-muted);">Multi-factor Scikit-Learn Engine</p>
+                </div>
+            </div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 1.2rem;">
+                Computes optimal starting XI evaluating player fitness, form, ground affinity, and weather resistance.
+            </p>
+            <a href="{% url 'ai_recommendations' %}" class="btn-saas btn-saas-primary" style="width: 100%;">
+                <i class="fas fa-wand-magic-sparkles"></i> Launch AI Match Engine
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ team_chart_data|json_script:"teamChartData" }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const teamData = JSON.parse(document.getElementById('teamChartData')?.textContent || '[]');
+    const chartEl = document.getElementById('teamPerformanceChart');
+    if (chartEl && window.Chart && teamData.length) {
+        const ctxPerf = chartEl.getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#94A3B8' : '#475569';
+        const gridColor = isDark ? '#1E293B' : '#E2E8F0';
+        new Chart(ctxPerf, { type:'bar', data:{ labels:teamData.map(x=>x.label), datasets:[
+            {label:'Wins',data:teamData.map(x=>x.wins),backgroundColor:'#10B981',borderRadius:6},
+            {label:'Draws',data:teamData.map(x=>x.draws),backgroundColor:'#06B6D4',borderRadius:6},
+            {label:'Losses',data:teamData.map(x=>x.losses),backgroundColor:'#F43F5E',borderRadius:6}
+        ]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:textColor,font:{family:'Plus Jakarta Sans',weight:600}}}},scales:{x:{grid:{display:false},ticks:{color:textColor}},y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:textColor,precision:0}}}}});
+    }
+    const fitEl=document.getElementById('fitnessDonutChart');
+    if (fitEl && window.Chart) new Chart(fitEl.getContext('2d'),{type:'doughnut',data:{labels:['Fit','Minor Knock','Injured'],datasets:[{data:[{{ fit_players_count }},{{ minor_issue_count }},{{ injured_players_count }}],backgroundColor:['#10B981','#F59E0B','#F43F5E'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'70%'}});
+
+    window.updateSportSquadSlots=function(){
+        const select=document.getElementById('createTeamSport'); const info=document.getElementById('sportSquadInfo'); const rows=document.getElementById('memberRows');
+        if(!select||!info||!rows) return; const opt=select.options[select.selectedIndex]; const lineup=Number(opt.dataset.lineup||11); const bench=Number(opt.dataset.bench||7); const total=lineup+bench; const requiredExtra=Math.max(lineup-1,0); const maxExtra=Math.max(total-1,requiredExtra);
+        info.innerHTML=`<strong>${opt.text}</strong> requires <strong>${lineup}</strong> active players. You are already one player, so add <strong>${requiredExtra}</strong> active teammate profile(s). Up to <strong>${maxExtra}</strong> teammate profiles can be stored when bench players are included.`;
+        rows.innerHTML=''; for(let i=0;i<requiredExtra;i++) addMemberRow(false);
+    };
+    window.addMemberRow=function(showToast=true){
+        const rows=document.getElementById('memberRows'); if(!rows) return; const count=rows.querySelectorAll('.member-row').length; const select=document.getElementById('createTeamSport'); const opt=select?.options[select.selectedIndex]; const max=Math.max(Number(opt?.dataset.lineup||11)+Number(opt?.dataset.bench||7)-1,0);
+        if(count>=max){if(showToast&&window.showToast)window.showToast('You reached the recommended squad size for this sport.','error');return;}
+        const row=document.createElement('div'); row.className='member-row'; row.style='display:grid;grid-template-columns:1fr 1.2fr auto;gap:.55rem;'; row.innerHTML='<input name="member_name[]" class="form-input-custom" placeholder="Member name"><input type="email" name="member_email[]" class="form-input-custom" placeholder="member@gmail.com"><button type="button" class="btn-saas btn-saas-secondary btn-saas-sm" onclick="this.closest(\'.member-row\').remove()"><i class="fas fa-trash"></i></button>'; rows.appendChild(row);
+    };
+    window.addMemberRowButtonHint=function(remaining){ const rows=document.getElementById('memberRows'); if(!rows) return; const hint=document.createElement('div'); hint.id='rowHint'; hint.style='font-size:.75rem;color:var(--text-muted);padding:.35rem 0;'; hint.textContent=`${remaining} additional slot(s) can be added with “Add Member”.`; rows.appendChild(hint); };
+    const sportSelect=document.getElementById('createTeamSport'); if(sportSelect) updateSportSquadSlots();
+});
+</script>
+{% endblock %}
+

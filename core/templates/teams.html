@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Teams & Squads - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Clubs & Team Rosters</h1>
+        <p class="page-subtitle">Manage registered clubs, coach assignments, tactical depth, and roster memberships.</p>
+    </div>
+    <button class="btn-saas btn-saas-primary" onclick="openModal('addTeamModal')">
+        <i class="fas fa-plus"></i>
+        <span>Register New Team</span>
+    </button>
+</div>
+
+<!-- Team Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.75rem;">
+    {% for team in teams %}
+    <div class="saas-card saas-card-glow" style="border-top: 4px solid {{ team.primary_color }};">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.85rem; min-width: 0; flex: 1;">
+                <div style="width: 50px; height: 50px; min-width: 50px; flex-shrink: 0; border-radius: 14px; background: {{ team.primary_color }}; color: #000; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; font-weight: 900; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+                    {{ team.short_code }}
+                </div>
+                <div style="min-width: 0; flex: 1;">
+                    <h3 style="font-size: 1.15rem; margin-bottom: 0.2rem; white-space: normal; word-break: break-word; line-height: 1.25;">{{ team.name }}</h3>
+                    <span class="badge-pill badge-info" style="font-size: 0.7rem;">{{ team.sport.name }}</span>
+                </div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0;">
+                <div style="font-size: 1.35rem; font-weight: 900; color: var(--accent-neon);">
+                    {{ team.win_rate }}%
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">Win Rate</div>
+            </div>
+        </div>
+
+        <!-- Coach & Ground Info -->
+        <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem;">
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-user-tie" style="color: var(--accent-cyan);"></i> Head Coach:</span>
+                <strong>{{ team.coach.full_name|default:"Unassigned" }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-location-dot" style="color: var(--accent-amber);"></i> Home Ground:</span>
+                <span>{{ team.home_ground|truncatechars:24 }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fas fa-users" style="color: var(--accent-lime);"></i> Roster Size:</span>
+                <strong style="color: var(--accent-lime);">{{ team.players.count }} Athletes</strong>
+            </div>
+        </div>
+
+        <!-- Record stats -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; text-align: center; margin-bottom: 1.25rem;">
+            <div style="background: var(--bg-card-hover); padding: 0.5rem; border-radius: 8px;">
+                <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">WINS</span>
+                <strong style="color: var(--accent-lime); font-size: 1.1rem;">{{ team.wins }}</strong>
+            </div>
+            <div style="background: var(--bg-card-hover); padding: 0.5rem; border-radius: 8px;">
+                <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">DRAWS</span>
+                <strong style="color: var(--accent-cyan); font-size: 1.1rem;">{{ team.draws }}</strong>
+            </div>
+            <div style="background: var(--bg-card-hover); padding: 0.5rem; border-radius: 8px;">
+                <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">LOSSES</span>
+                <strong style="color: var(--accent-rose); font-size: 1.1rem;">{{ team.losses }}</strong>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{% url 'team_detail' team.id %}" class="btn-saas btn-saas-secondary" style="flex: 1; text-align: center;">
+                <i class="fas fa-users-cog"></i> View Roster
+            </a>
+            <a href="{% url 'ai_recommendations' %}?team_id={{ team.id }}" class="btn-saas btn-saas-primary" style="flex: 1; text-align: center;">
+                <i class="fas fa-brain"></i> AI Lineup
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ====================================================
+     ADD TEAM MODAL (FR-3.1)
+     ==================================================== -->
+<div class="modal-overlay" id="addTeamModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.4rem;">Register New Team</h2>
+            <button onclick="closeModal('addTeamModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'team_add' %}">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Team / Club Name *</label>
+                    <input type="text" name="name" required class="form-input-custom" placeholder="e.g. Indus Titans FC">
+                </div>
+                <div>
+                    <label class="form-label-custom">Short Code *</label>
+                    <input type="text" name="short_code" required class="form-input-custom" placeholder="ITFC" maxlength="6">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Sport *</label>
+                    <select name="sport" required class="form-input-custom">
+                        {% for s in sports %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Assign Coach (FR-3.5)</label>
+                    <select name="coach" class="form-input-custom">
+                        <option value="">-- No Coach Assigned --</option>
+                        {% for c in coaches %}
+                        <option value="{{ c.id }}">{{ c.full_name }} ({{ c.license_level }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label class="form-label-custom">Home Ground / Arena</label>
+                    <input type="text" name="home_ground" class="form-input-custom" value="Indus Central Arena">
+                </div>
+                <div>
+                    <label class="form-label-custom">Jersey Accent Color</label>
+                    <input type="color" name="primary_color" class="form-input-custom" value="#10B981" style="height: 44px; padding: 2px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('addTeamModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Create Team</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

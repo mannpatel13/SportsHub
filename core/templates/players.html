@@ -1,0 +1,532 @@
+{% extends 'base.html' %}
+
+{% block title %}Player Roster & Analytics - SportsHub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Squad & Player Management</h1>
+        <p class="page-subtitle">Manage athlete profiles, fitness metrics, form ratings, and ground preferences.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn-saas btn-saas-secondary" onclick="openModal('addTeamModal')">
+            <i class="fas fa-shield-plus"></i>
+            <span>Create New Team</span>
+        </button>
+        <button class="btn-saas btn-saas-primary" onclick="openModal('addPlayerModal')">
+            <i class="fas fa-user-plus"></i>
+            <span>Add New Athlete</span>
+        </button>
+    </div>
+</div>
+
+<!-- Filters & Search Bar -->
+<div class="saas-card" style="margin-bottom: 2rem; padding: 1.25rem;">
+    <form method="GET" action="{% url 'players' %}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+        <div style="flex: 2; min-width: 240px;">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search player name or role..." class="form-input-custom">
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <select name="role" class="form-input-custom">
+                <option value="">All Roles</option>
+                <option value="Forward" {% if selected_role == 'Forward' %}selected{% endif %}>Forward / Striker</option>
+                <option value="Midfielder" {% if selected_role == 'Midfielder' %}selected{% endif %}>Midfielder</option>
+                <option value="Defender" {% if selected_role == 'Defender' %}selected{% endif %}>Defender</option>
+                <option value="Goalkeeper" {% if selected_role == 'Goalkeeper' %}selected{% endif %}>Goalkeeper</option>
+                <option value="Batsman" {% if selected_role == 'Batsman' %}selected{% endif %}>Batsman</option>
+                <option value="Bowler" {% if selected_role == 'Bowler' %}selected{% endif %}>Bowler</option>
+            </select>
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <select name="team" class="form-input-custom">
+                <option value="">All Teams</option>
+                {% for t in teams %}
+                <option value="{{ t.id }}" {% if selected_team == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <select name="injury" class="form-input-custom">
+                <option value="">All Health Status</option>
+                <option value="FIT" {% if selected_injury == 'FIT' %}selected{% endif %}>Match Fit</option>
+                <option value="MINOR_ISSUE" {% if selected_injury == 'MINOR_ISSUE' %}selected{% endif %}>Minor Issue</option>
+                <option value="INJURED" {% if selected_injury == 'INJURED' %}selected{% endif %}>Injured / Sidelined</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="btn-saas btn-saas-secondary">
+                <i class="fas fa-filter"></i> Apply
+            </button>
+            {% if search_query or selected_role or selected_team or selected_injury %}
+            <a href="{% url 'players' %}" class="btn-saas btn-saas-secondary" title="Reset Filters">
+                <i class="fas fa-times"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Player Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
+    {% for player in players %}
+    <div class="saas-card" style="border-top: 3px solid {% if player.injury_status == 'FIT' %}var(--accent-lime){% elif player.injury_status == 'MINOR_ISSUE' %}var(--accent-amber){% else %}var(--accent-rose){% endif %};">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.85rem; min-width: 0; flex: 1;">
+                <div style="width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; border-radius: 12px; background: var(--bg-secondary); border: 2px solid var(--border-highlight); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; font-weight: 800; color: var(--accent-neon);">
+                    #{{ player.jersey_number }}
+                </div>
+                <div style="min-width: 0; flex: 1;">
+                    <h3 style="font-size: 1.05rem; margin-bottom: 0.15rem; white-space: normal; word-break: break-word; line-height: 1.25;">{{ player.name }}</h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        {{ player.role }} • {{ player.team.name|default:"Free Agent" }}
+                    </div>
+                </div>
+            </div>
+            
+            <span class="badge-pill {{ player.injury_badge_class }}" style="flex-shrink: 0;">
+                {% if player.injury_status == 'FIT' %}Fit 100%{% elif player.injury_status == 'MINOR_ISSUE' %}Minor Knock{% else %}Injured{% endif %}
+            </span>
+        </div>
+
+        <!-- Metrics Bars -->
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.25rem;">
+                    <span>Match Fitness</span>
+                    <span style="color: var(--accent-lime);">{{ player.fitness_score }}%</span>
+                </div>
+                <div style="height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ player.fitness_score }}%; background: var(--accent-lime); border-radius: 3px;"></div>
+                </div>
+            </div>
+
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.25rem;">
+                    <span>Recent Form</span>
+                    <span style="color: var(--accent-purple);">{{ player.recent_form }}/10</span>
+                </div>
+                <div style="height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ player.recent_form|floatformat:1 }}0%; background: var(--accent-purple); border-radius: 3px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.25rem; font-size: 0.72rem;">
+            <span class="badge-pill badge-info">
+                <i class="fas fa-layer-group"></i> {{ player.preferred_ground }}
+            </span>
+            <span class="badge-pill badge-info">
+                <i class="fas fa-cloud"></i> {{ player.preferred_weather }}
+            </span>
+            <span class="badge-pill badge-info">
+                <i class="fas fa-futbol"></i> {{ player.goals_scored }} Goals / {{ player.assists }} Ast
+            </span>
+        </div>
+
+        <!-- Card Footer Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; pt: 0.75rem; border-top: 1px solid var(--border-color);">
+            <button class="btn-saas btn-saas-secondary btn-saas-sm" onclick="viewPlayerModal({{ player.id }})">
+                <i class="fas fa-radar"></i> Radar Stats
+            </button>
+            <div style="display: flex; gap: 0.4rem;">
+                <button class="btn-saas btn-saas-secondary btn-saas-sm" onclick="openEditModal({{ player.id }}, '{{ player.name|escapejs }}', '{{ player.role }}', {{ player.jersey_number }}, {{ player.age }}, {{ player.fitness_score }}, '{{ player.injury_status }}', {{ player.recent_form }}, '{{ player.preferred_ground }}', '{{ player.preferred_weather }}', '{{ player.team.id|default:'' }}')">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <form method="POST" action="{% url 'player_delete' player.id %}" onsubmit="return confirm('Are you sure you want to remove {{ player.name }}?');" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-saas btn-saas-danger btn-saas-sm">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-dim);">
+        <i class="fas fa-user-slash" style="font-size: 3rem; margin-bottom: 1rem; color: var(--border-highlight);"></i>
+        <h3>No athletes found matching your search.</h3>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ====================================================
+     ADD PLAYER MODAL (FR-2.1)
+     ==================================================== -->
+<div class="modal-overlay" id="addPlayerModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.4rem;">Add Athlete to Roster</h2>
+            <button onclick="closeModal('addPlayerModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'player_add' %}">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Full Name *</label>
+                    <input type="text" name="name" required class="form-input-custom" placeholder="e.g. Leo Vance">
+                </div>
+                <div>
+                    <label class="form-label-custom">Jersey # *</label>
+                    <input type="number" name="jersey_number" required class="form-input-custom" value="10">
+                </div>
+            </div>
+            <div style="margin-bottom:1rem;"><label class="form-label-custom">Gmail / Email</label><input type="email" name="email" class="form-input-custom" placeholder="athlete@gmail.com"></div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Sport *</label>
+                    <select name="sport" required class="form-input-custom">
+                        {% for s in sports %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Team</label>
+                    <select name="team" class="form-input-custom">
+                        <option value="">-- Free Agent --</option>
+                        {% for t in teams %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Position / Role *</label>
+                    <input type="text" name="role" required class="form-input-custom" value="Forward" placeholder="Forward, Midfielder, etc.">
+                </div>
+                <div>
+                    <label class="form-label-custom">Age *</label>
+                    <input type="number" name="age" required class="form-input-custom" value="22">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Fitness Score (0-100) *</label>
+                    <input type="number" name="fitness_score" min="0" max="100" required class="form-input-custom" value="95">
+                </div>
+                <div>
+                    <label class="form-label-custom">Recent Form (1.0 - 10.0) *</label>
+                    <input type="number" step="0.1" min="1" max="10" name="recent_form" required class="form-input-custom" value="8.5">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Health Status *</label>
+                    <select name="injury_status" class="form-input-custom">
+                        <option value="FIT">Match Fit (100%)</option>
+                        <option value="MINOR_ISSUE">Minor Issue (70%)</option>
+                        <option value="INJURED">Injured / Sidelined (0%)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Preferred Ground</label>
+                    <select name="preferred_ground" class="form-input-custom">
+                        <option value="Any">All Grounds</option>
+                        <option value="Grass">Grass</option>
+                        <option value="Turf">Turf</option>
+                        <option value="Clay">Clay</option>
+                        <option value="Indoor">Indoor</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label class="form-label-custom">Preferred Weather</label>
+                <select name="preferred_weather" class="form-input-custom">
+                    <option value="Any">All Weather</option>
+                    <option value="Sunny">Sunny</option>
+                    <option value="Rainy">Rainy</option>
+                    <option value="Humid">Humid</option>
+                    <option value="Windy">Windy</option>
+                    <option value="Overcast">Overcast</option>
+                </select>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('addPlayerModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Save Athlete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====================================================
+     EDIT PLAYER MODAL (FR-2.2)
+     ==================================================== -->
+<div class="modal-overlay" id="editPlayerModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.4rem;">Edit Athlete Details</h2>
+            <button onclick="closeModal('editPlayerModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" id="editPlayerForm">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Full Name</label>
+                    <input type="text" name="name" id="edit_name" required class="form-input-custom">
+                </div>
+                <div>
+                    <label class="form-label-custom">Jersey #</label>
+                    <input type="number" name="jersey_number" id="edit_jersey" required class="form-input-custom">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Position / Role</label>
+                    <input type="text" name="role" id="edit_role" required class="form-input-custom">
+                </div>
+                <div>
+                    <label class="form-label-custom">Age</label>
+                    <input type="number" name="age" id="edit_age" required class="form-input-custom">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Team</label>
+                    <select name="team" id="edit_team" class="form-input-custom">
+                        <option value="">-- Free Agent --</option>
+                        {% for t in teams %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Health Status</label>
+                    <select name="injury_status" id="edit_injury" class="form-input-custom">
+                        <option value="FIT">Match Fit</option>
+                        <option value="MINOR_ISSUE">Minor Issue</option>
+                        <option value="INJURED">Injured</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Fitness (0-100)</label>
+                    <input type="number" name="fitness_score" id="edit_fitness" required class="form-input-custom">
+                </div>
+                <div>
+                    <label class="form-label-custom">Recent Form (1-10)</label>
+                    <input type="number" step="0.1" name="recent_form" id="edit_form" required class="form-input-custom">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label class="form-label-custom">Ground Affinity</label>
+                    <select name="preferred_ground" id="edit_ground" class="form-input-custom">
+                        <option value="Any">Any</option>
+                        <option value="Grass">Grass</option>
+                        <option value="Turf">Turf</option>
+                        <option value="Clay">Clay</option>
+                        <option value="Indoor">Indoor</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Weather Affinity</label>
+                    <select name="preferred_weather" id="edit_weather" class="form-input-custom">
+                        <option value="Any">Any</option>
+                        <option value="Sunny">Sunny</option>
+                        <option value="Rainy">Rainy</option>
+                        <option value="Humid">Humid</option>
+                        <option value="Windy">Windy</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('editPlayerModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Update Details</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====================================================
+     RADAR SKILL & ANALYTICS MODAL (FR-2.5)
+     ==================================================== -->
+<div class="modal-overlay" id="radarStatsModal">
+    <div class="modal-box" style="max-width: 650px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+                <h2 style="font-size: 1.35rem;" id="modalPlayerName">Athlete Name</h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted);" id="modalPlayerRole">Role • Team</div>
+            </div>
+            <button onclick="closeModal('radarStatsModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: center;">
+            <div style="height: 240px; position: relative;">
+                <canvas id="playerRadarCanvas"></canvas>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem;">
+                <div class="saas-card" style="padding: 0.85rem;">
+                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem;">Matches Played</span>
+                    <strong style="font-size: 1.1rem;" id="modalMatches">0</strong>
+                </div>
+                <div class="saas-card" style="padding: 0.85rem;">
+                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem;">Goals / Points Contributed</span>
+                    <strong style="font-size: 1.1rem; color: var(--accent-neon);" id="modalGoals">0</strong>
+                </div>
+                <div class="saas-card" style="padding: 0.85rem;">
+                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem;">Tactical IQ & Awareness</span>
+                    <strong style="font-size: 1.1rem; color: var(--accent-cyan);" id="modalTactics">0/100</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====================================================
+     ADD TEAM MODAL (Accessible from Players Page)
+     ==================================================== -->
+<div class="modal-overlay" id="addTeamModal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.4rem;">Register New Team</h2>
+            <button onclick="closeModal('addTeamModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'team_add' %}">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Team / Club Name *</label>
+                    <input type="text" name="name" required class="form-input-custom" placeholder="e.g. Indus Titans FC">
+                </div>
+                <div>
+                    <label class="form-label-custom">Short Code *</label>
+                    <input type="text" name="short_code" required class="form-input-custom" placeholder="ITFC" maxlength="6">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label class="form-label-custom">Sport *</label>
+                    <select name="sport" required class="form-input-custom">
+                        {% for s in sports %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-custom">Assign Coach</label>
+                    <select name="coach" class="form-input-custom">
+                        <option value="">-- No Coach Assigned --</option>
+                        {% for c in coaches %}
+                        <option value="{{ c.id }}">{{ c.full_name }} ({{ c.license_level }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label class="form-label-custom">Home Ground / Arena</label>
+                    <input type="text" name="home_ground" class="form-input-custom" value="Indus Central Arena">
+                </div>
+                <div>
+                    <label class="form-label-custom">Jersey Accent Color</label>
+                    <input type="color" name="primary_color" class="form-input-custom" value="#10B981" style="height: 44px; padding: 2px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" class="btn-saas btn-saas-secondary" onclick="closeModal('addTeamModal')">Cancel</button>
+                <button type="submit" class="btn-saas btn-saas-primary">Create Team</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let radarChartInstance = null;
+
+function openEditModal(id, name, role, jersey, age, fitness, injury, form, ground, weather, teamId) {
+    document.getElementById('editPlayerForm').action = `/players/${id}/edit/`;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_role').value = role;
+    document.getElementById('edit_jersey').value = jersey;
+    document.getElementById('edit_age').value = age;
+    document.getElementById('edit_fitness').value = fitness;
+    document.getElementById('edit_injury').value = injury;
+    document.getElementById('edit_form').value = form;
+    document.getElementById('edit_ground').value = ground;
+    document.getElementById('edit_weather').value = weather;
+    document.getElementById('edit_team').value = teamId;
+    openModal('editPlayerModal');
+}
+
+async function viewPlayerModal(playerId) {
+    try {
+        const res = await fetch(`/api/players/${playerId}/`);
+        const data = await res.json();
+        
+        document.getElementById('modalPlayerName').innerText = `#${data.jersey_number} ${data.name}`;
+        document.getElementById('modalPlayerRole').innerText = `${data.role} • ${data.team_name} (${data.sport})`;
+        document.getElementById('modalMatches').innerText = `${data.matches_played} matches`;
+        document.getElementById('modalGoals').innerText = `${data.goals_scored} goals (${data.assists} assists)`;
+        document.getElementById('modalTactics').innerText = `${data.tactics} / 100`;
+
+        const ctx = document.getElementById('playerRadarCanvas').getContext('2d');
+        if (radarChartInstance) {
+            radarChartInstance.destroy();
+        }
+
+        radarChartInstance = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Pace', 'Stamina', 'Tactics', 'Form', 'Fitness'],
+                datasets: [{
+                    label: data.name,
+                    data: [data.pace, data.stamina, data.tactics, data.recent_form * 10, data.fitness_score],
+                    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                    borderColor: '#10B981',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#00F59B'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        suggestedMin: 40,
+                        suggestedMax: 100,
+                        ticks: { display: false },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        angleLines: { color: 'rgba(255,255,255,0.1)' },
+                        pointLabels: { color: '#94A3B8', font: { family: 'Plus Jakarta Sans', weight: 600 } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        openModal('radarStatsModal');
+    } catch (e) {
+        showToast('Error loading player metrics', 'error');
+    }
+}
+</script>
+{% endblock %}
